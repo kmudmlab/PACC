@@ -9,17 +9,17 @@ import org.scalatest.{FlatSpec, Matchers}
 /**
   * Created by hmpark on 17. 3. 17.
   */
-class PACCSpec extends FlatSpec with Matchers {
+class PACCLocalOptSpec extends FlatSpec with Matchers {
 
   Logger.getLogger("org").setLevel(Level.WARN)
   Logger.getLogger("akka").setLevel(Level.WARN)
   Logger.getLogger("cc.utils.PairExternalSorter").setLevel(Level.WARN)
-  Logger.getLogger(PACC.getClass).setLevel(Level.WARN)
+  Logger.getLogger(PACCOpt .getClass).setLevel(Level.WARN)
 
   val logger = Logger.getLogger(getClass)
   logger.setLevel(Level.INFO)
 
-  "PACC" should "output the same result with UnionFind" in {
+  "PACCLocalOpt" should "output the same result with UnionFind" in {
 
     val paths = Seq(
       getClass.getResource("/graphs/small/vline"),
@@ -30,7 +30,7 @@ class PACCSpec extends FlatSpec with Matchers {
       getClass.getResource("/graphs/grqc")
     )
 
-    val conf = new SparkConf().setAppName("PACC-test").setMaster("local[1]")
+    val conf = new SparkConf().setAppName("PACCOpt-test").setMaster("local[1]")
       .set("spark.serializer", "org.apache.spark.serializer.KryoSerializer")
       .set("spark.kryoserializer.buffer", "24m")
 
@@ -51,7 +51,7 @@ class PACCSpec extends FlatSpec with Matchers {
         (st.nextToken().toLong, st.nextToken().toLong)
       }).collect().distinct.sorted
 
-      val res = PACC.run(path.toString, numPartitions, localThreshold, sc).collect().distinct.sorted
+      val res = PACCLocalOpt.run(path.toString, numPartitions, localThreshold, sc).collect().distinct.sorted
 
       res should be (true_result)
 

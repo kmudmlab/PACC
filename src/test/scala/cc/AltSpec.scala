@@ -30,7 +30,7 @@ class AltSpec extends FlatSpec with Matchers {
       getClass.getResource("/graphs/grqc")
     )
 
-    val conf = new SparkConf().setAppName("PACCBasic-test").setMaster("local[1]")
+    val conf = new SparkConf().setAppName("Alt-test").setMaster("local[1]")
       .set("spark.serializer", "org.apache.spark.serializer.KryoSerializer")
       .set("spark.kryoserializer.buffer", "24m")
 

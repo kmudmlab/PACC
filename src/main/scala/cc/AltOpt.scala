@@ -96,11 +96,8 @@ object AltOpt{
       val (lout, l_change, lout_size) = largeStar(out, numPartitions)
       val t01 = System.currentTimeMillis()
 
-      lout.foreach{case (u, v) => println(u.toTuple, v.toTuple)}
-
       val (sout, s_change, sout_size) = smallStar(lout)
       val t02 = System.currentTimeMillis()
-
 
       val ltime = (t01-t00)/1000.0
       val stime = (t02-t01)/1000.0
@@ -122,14 +119,23 @@ object AltOpt{
 
     val t2 = System.currentTimeMillis()
 
+    val res = out.map{case (u, v) => (u.nodeId, v.nodeId)}.filter{case (u, v) => u != v}.persist(StorageLevel.MEMORY_AND_DISK)
+
+    res.count()
+
+    out.unpersist(false)
+
+    val t3 = System.currentTimeMillis()
+
     val itime = (t1-t0)/1000.0
     val rtime = (t2-t1)/1000.0
-    val ttime = (t2-t0)/1000.0
+    val ctime = (t3-t2)/1000.0
+    val ttime = (t3-t0)/1000.0
     val inputFileName = inputPath.split("/").last
 
-    println(s"$APP_NAME\t$inputFileName\t$round\t$itime\t$rtime\t$ttime")
+    println(s"$APP_NAME\t$inputFileName\t$numPartitions\t$round\t$itime\t$rtime\t$ctime\t$ttime")
 
-    out
+    res
   }
 
   /**
@@ -161,7 +167,9 @@ object AltOpt{
         else {
           Seq((u.low, v.low), (v.low, u.low))
         }
-      }.starGrouped()
+      }
+      .starGrouped()
+//      .groupByKey().mapValues(x=> x.iterator)
 
 
     val tmpPaths = sc.hadoopConfiguration.getTrimmedStrings("yarn.nodemanager.local-dirs")
@@ -233,7 +241,13 @@ object AltOpt{
 
     val NUM_CHANGES = sc.longAccumulator
 
-    val groupedRDD = inputRDD.starGrouped()
+    val groupedRDD = inputRDD.map{case (u, v) =>
+      if (u.nodeId < v.nodeId || (u.nodeId == v.nodeId && u.nonCopy && v.isCopy)) {
+        (v, u)
+      }else {
+        (u, v)
+      }
+    }.starGrouped()
 
     val tmpPaths = sc.hadoopConfiguration.getTrimmedStrings("yarn.nodemanager.local-dirs")
 
@@ -260,8 +274,11 @@ object AltOpt{
 
         val uN_small = longExternalSorter.sort(_uN_small)
 
-        (uN_small.filter(_ != mu) ++ Iterator(u)) map { v =>
-          if (v != u) NUM_CHANGES.add(1)
+        (uN_small ++ Iterator(u)).filter(_ != mu) map { v =>
+
+          if(v != u){
+            NUM_CHANGES.add(1)
+          }
           (v, mu)
         }
 

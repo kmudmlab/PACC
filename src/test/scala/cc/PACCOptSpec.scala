@@ -14,6 +14,7 @@ class PACCOptSpec extends FlatSpec with Matchers {
   Logger.getLogger("org").setLevel(Level.WARN)
   Logger.getLogger("akka").setLevel(Level.WARN)
   Logger.getLogger("cc.utils.PairExternalSorter").setLevel(Level.WARN)
+  Logger.getLogger(PACCOpt .getClass).setLevel(Level.WARN)
 
   val logger = Logger.getLogger(getClass)
   logger.setLevel(Level.INFO)
@@ -29,7 +30,7 @@ class PACCOptSpec extends FlatSpec with Matchers {
       getClass.getResource("/graphs/grqc")
     )
 
-    val conf = new SparkConf().setAppName("PACCBasic-test").setMaster("local[1]")
+    val conf = new SparkConf().setAppName("PACCOpt-test").setMaster("local[1]")
       .set("spark.serializer", "org.apache.spark.serializer.KryoSerializer")
       .set("spark.kryoserializer.buffer", "24m")
 

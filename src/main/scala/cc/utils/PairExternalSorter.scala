@@ -16,7 +16,7 @@ class PairExternalSorter(basePaths: Array[String]){
 
   val localPath = new LocalPaths(basePaths, "pair-ext-sort")
 
-  val KEY_SHIFT = 23
+  val KEY_SHIFT = 20
   val MAX_KEY: Long = Long.MaxValue >> KEY_SHIFT
   val BUFFER_SIZE: Int = 1 << KEY_SHIFT
   val INDEX_MASK: Long = BUFFER_SIZE - 1
