@@ -1,4 +1,4 @@
-package cc.utils
+package cc.spark.utils
 
 object PartImplicitWrapper {
 

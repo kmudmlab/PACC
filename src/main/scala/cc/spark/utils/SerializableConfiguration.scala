@@ -32,7 +32,7 @@
   * Version: 3.0
   */
 
-package cc.utils
+package cc.spark.utils
 
 import java.io.{ObjectInputStream, ObjectOutputStream}
 

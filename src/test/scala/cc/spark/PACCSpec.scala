@@ -1,4 +1,4 @@
-package cc
+package cc.spark
 
 import java.util.StringTokenizer
 
@@ -9,17 +9,17 @@ import org.scalatest.{FlatSpec, Matchers}
 /**
   * Created by hmpark on 17. 3. 17.
   */
-class AltOptSpec extends FlatSpec with Matchers {
+class PACCSpec extends FlatSpec with Matchers {
 
   Logger.getLogger("org").setLevel(Level.WARN)
   Logger.getLogger("akka").setLevel(Level.WARN)
   Logger.getLogger("cc.utils.PairExternalSorter").setLevel(Level.WARN)
-  Logger.getLogger(AltOpt.getClass).setLevel(Level.WARN)
+  Logger.getLogger(PACC.getClass).setLevel(Level.WARN)
 
   val logger = Logger.getLogger(getClass)
   logger.setLevel(Level.INFO)
 
-  "AltOpt" should "output the same result with UnionFind" in {
+  "PACC" should "output the same result with UnionFind" in {
 
     val paths = Seq(
       getClass.getResource("/graphs/small/vline"),
@@ -30,24 +30,28 @@ class AltOptSpec extends FlatSpec with Matchers {
       getClass.getResource("/graphs/grqc")
     )
 
-    val conf = new SparkConf().setAppName("AltOpt-test").setMaster("local[1]")
+    val conf = new SparkConf().setAppName("PACC-test").setMaster("local[1]")
       .set("spark.serializer", "org.apache.spark.serializer.KryoSerializer")
       .set("spark.kryoserializer.buffer", "24m")
 
     val sc = new SparkContext(conf)
 
+
     val numPartitionsSet = Seq(1,2,4,8,16)
 
-    for(path <- paths; numPartitions <- numPartitionsSet){
+    val localThresholdSet = Seq(0, 100, 10000)
 
-      logger.info(f"test( data: $path )")
+
+    for(path <- paths; numPartitions <- numPartitionsSet; localThreshold <- localThresholdSet){
+
+      logger.info(f"test( data: $path, numPartitions: $numPartitions, localThreshold: $localThreshold )")
 
       val true_result = UnionFind.run(sc.textFile(path.toString).map{ line =>
         val st = new StringTokenizer(line)
         (st.nextToken().toLong, st.nextToken().toLong)
       }).collect().distinct.sorted
 
-      val res = AltOpt.run(path.toString, numPartitions, sc).collect().distinct.sorted
+      val res = PACC.run(path.toString, numPartitions, localThreshold, sc).collect().distinct.sorted
 
       res should be (true_result)
 

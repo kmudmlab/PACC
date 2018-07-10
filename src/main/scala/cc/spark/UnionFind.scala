@@ -1,4 +1,4 @@
-package cc
+package cc.spark
 
 import org.apache.spark.rdd.RDD
 

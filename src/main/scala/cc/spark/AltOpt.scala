@@ -1,28 +1,33 @@
-package cc
+package cc.spark
 
 import java.util.StringTokenizer
 
-import cc.utils.LongExternalSorter
-import cc.utils.StarGroupOps._
+import cc.spark.utils.LongExternalSorter
+import cc.spark.utils.StarGroupOps._
 import org.apache.hadoop.fs.{FileSystem, Path}
 import org.apache.log4j.Logger
 import org.apache.spark.rdd.RDD
 import org.apache.spark.storage.StorageLevel
 import org.apache.spark.{HashPartitioner, SparkConf, SparkContext}
+import utils.CopyImplicitWrapper._
 
-object Alt{
+object AltOpt{
 
   private val logger = Logger.getLogger(getClass)
 
-  case class Config(inputPath: String = "", outputPath: String = "")
+  case class Config(numPartitions: Int = 80, inputPath: String = "", outputPath: String = "")
 
-  val APP_NAME: String = "alt"
+  val APP_NAME: String = "alt-opt"
   val VERSION: String = "0.1"
 
   def main(args: Array[String]): Unit = {
 
     val parser = new scopt.OptionParser[Config](APP_NAME) {
       head(APP_NAME, VERSION)
+
+      opt[Int]('p', "numPartition").required()
+        .action((x, c) => c.copy(numPartitions = x))
+        .text("the number of partitions. (default: 80)")
 
       arg[String]("input")
         .action((x, c) => c.copy(inputPath = x))
@@ -46,7 +51,7 @@ object Alt{
 
         FileSystem.get(sc.hadoopConfiguration).delete(new Path(opts.outputPath), true)
 
-        run(opts.inputPath, sc)
+        run(opts.inputPath, opts.numPartitions, sc)
           .map { case (u, v) => u + "\t" + v }
           .saveAsTextFile(opts.outputPath)
 
@@ -60,10 +65,11 @@ object Alt{
     * submit the spark job.
     *
     * @param inputPath input file path.
+    * @param numPartitions the number of partitions
     * @param sc spark context.
     * @return an RDD containing connected components
     */
-  def run(inputPath: String, sc: SparkContext): RDD[(Long, Long)] = {
+  def run(inputPath: String, numPartitions: Int, sc: SparkContext): RDD[(Long, Long)] = {
 
     val t0 = System.currentTimeMillis()
 
@@ -79,7 +85,6 @@ object Alt{
     val t1 = System.currentTimeMillis()
 
 
-
     var converge = false
 
     var round = 0
@@ -88,12 +93,11 @@ object Alt{
 
       val t00 = System.currentTimeMillis()
 
-      val (lout, l_change, lout_size) = largeStar(out, round)
+      val (lout, l_change, lout_size) = largeStar(out, numPartitions)
       val t01 = System.currentTimeMillis()
 
-      val (sout, s_change, sout_size) = smallStar(lout, round)
+      val (sout, s_change, sout_size) = smallStar(lout)
       val t02 = System.currentTimeMillis()
-
 
       val ltime = (t01-t00)/1000.0
       val stime = (t02-t01)/1000.0
@@ -115,55 +119,58 @@ object Alt{
 
     val t2 = System.currentTimeMillis()
 
-    val itime = (t1-t0)/1000.0
-    val rtime = (t2-t1)/1000.0
-    val ttime = (t2-t0)/1000.0
-    val inputFileName = inputPath.split("/").last
-
-    println(s"$APP_NAME\t$inputFileName\t$round\t$itime\t$rtime\t$ttime")
-
-    out
-  }
-
-  /**
-    * CC-Computation operation.
-    * This operation conducts LocalCC in each partition.
-    *
-    * @param remains input RDD
-    * @param numPartitions the number of partitions
-    * @return final output RDD containing connected components
-    */
-  def ccComputation(remains: RDD[(Long, Long)], numPartitions: Int): RDD[(Long, Long)] = {
-    val res = remains.map{ case (u, v) => (if(u < 0) ~u else u, v) }
-      .partitionBy(new HashPartitioner(numPartitions))
-      .mapPartitions(edges => UnionFind.run(edges)).persist()
+    val res = out.map{case (u, v) => (u.nodeId, v.nodeId)}.filter{case (u, v) => u != v}.persist(StorageLevel.MEMORY_AND_DISK)
 
     res.count()
+
+    out.unpersist(false)
+
+    val t3 = System.currentTimeMillis()
+
+    val itime = (t1-t0)/1000.0
+    val rtime = (t2-t1)/1000.0
+    val ctime = (t3-t2)/1000.0
+    val ttime = (t3-t0)/1000.0
+    val inputFileName = inputPath.split("/").last
+
+    println(s"$APP_NAME\t$inputFileName\t$numPartitions\t$round\t$itime\t$rtime\t$ctime\t$ttime")
 
     res
   }
 
-
   /**
-    * PA-Large-Star Operation.
-    * For each node n, this operation links each large neighbor v to the minimum node mcu(p(v))
-    * in the same partition p(v) that contains the neighbor v.
+    * Large-Star-Opt Operation.
     *
     * @param inputRDD the input rdd
-    * @param round current round number
+    * @param numPartitions the number of partitions
     * @return (RDD for next round input, # changed edges, # of 'out' edges,
     *         # filtered 'cc' edges, # filtered 'in' edges)
     */
-  def largeStar(inputRDD: RDD[(Long, Long)], round: Int): (RDD[(Long, Long)], Long, Long) = {
+  def largeStar(inputRDD: RDD[(Long, Long)], numPartitions: Int): (RDD[(Long, Long)], Long, Long) = {
 
     val sc = inputRDD.sparkContext
 
     val NUM_CHANGES = sc.longAccumulator
 
-    val groupedRDD = inputRDD.flatMap{
-      case (u, v) =>
-        Seq((u, v), (v, u))
-    }.starGrouped()
+    val groupedRDD = inputRDD.map { case (u, v) =>
+      if (u.nodeId < v.nodeId || ((u.nodeId == v.nodeId) && v.isCopy && u.nonCopy)) (u, v)
+      else (v, u)
+    }.filter { case (u, v) => u != v }
+      .flatMap { case (u, v) =>
+        if (u.isHigh && u.nonCopy && (u.nodeId != v.nodeId)) {
+
+          val ui = u.copy(v, numPartitions)
+
+          NUM_CHANGES.add(1)
+          Seq((u.low, ui), (ui, v.low))
+        }
+        else {
+          Seq((u.low, v.low), (v.low, u.low))
+        }
+      }
+      .starGrouped()
+//      .groupByKey().mapValues(x=> x.iterator)
+
 
     val tmpPaths = sc.hadoopConfiguration.getTrimmedStrings("yarn.nodemanager.local-dirs")
 
@@ -172,26 +179,36 @@ object Alt{
       val longExternalSorter = new LongExternalSorter(tmpPaths)
 
       def processNode(x: (Long, Iterator[Long])): Iterator[(Long, Long)] ={
-        val (u, uN) = x
+        val (_u, uN) = x
 
-        var mu = u
+        var mu = _u
+        var mu_comp = (_u.nodeId << 1) + (if(_u.isCopy) 1 else 0)
+        var uNSize = 0l
 
         val _uN_large = uN.filter { v =>
 
-          mu = mu min v
+          val v_comp = (v.nodeId << 1) + (if(v.isCopy) 1 else 0)
+          if(mu_comp > v_comp){
+            mu_comp = v_comp
+            mu = v
+          }
 
-          v > u
+          uNSize += 1
+
+          _u.nodeId < v.nodeId || ((_u.nodeId == v.nodeId) && v.isCopy && _u.nonCopy)
         }
 
         val uN_large = longExternalSorter.sort(_uN_large)
 
-        if(u == mu){
-          uN_large.map((_, mu))
+        val u = if(uNSize > numPartitions && _u.nonCopy) _u.high else _u
+
+        if(u.nodeId == mu.nodeId){
+          uN_large.map(v => (v.low, u))
         }
         else{
           uN_large.map{v =>
             NUM_CHANGES.add(1)
-            (v, mu)
+            (v.low, mu)
           }
         }
       }
@@ -215,17 +232,22 @@ object Alt{
     * in the same partition p(v) that contains the neighbor v.
     *
     * @param inputRDD the input rdd
-    * @param round current round number
     * @return (RDD for next round input, # changed edges, # of 'out' edges,
     *         # filtered 'in' edges)
     */
-  def smallStar(inputRDD: RDD[(Long, Long)], round: Int): (RDD[(Long, Long)], Long, Long) = {
+  def smallStar(inputRDD: RDD[(Long, Long)]): (RDD[(Long, Long)], Long, Long) = {
 
     val sc = inputRDD.sparkContext
 
     val NUM_CHANGES = sc.longAccumulator
 
-    val groupedRDD = inputRDD.starGrouped()
+    val groupedRDD = inputRDD.map{case (u, v) =>
+      if (u.nodeId < v.nodeId || (u.nodeId == v.nodeId && u.nonCopy && v.isCopy)) {
+        (v, u)
+      }else {
+        (u, v)
+      }
+    }.starGrouped()
 
     val tmpPaths = sc.hadoopConfiguration.getTrimmedStrings("yarn.nodemanager.local-dirs")
 
@@ -236,19 +258,27 @@ object Alt{
       def processNode(x: (Long, Iterator[Long])): Iterator[(Long, Long)] = {
         val (u, uN) = x
 
-        var mu = Long.MaxValue
+        var mu = u
+        var mu_comp = (u.nodeId << 1) + (if(u.isCopy) 1 else 0)
 
         val _uN_small = uN.map { v =>
 
-          mu = mu min v
+          val v_comp = (v.nodeId << 1) + (if(v.isCopy) 1 else 0)
+          if(mu_comp > v_comp){
+            mu_comp = v_comp
+            mu = v
+          }
 
           v
         }
 
         val uN_small = longExternalSorter.sort(_uN_small)
 
-        (uN_small.filter(_ != mu) ++ Iterator(u)) map { v =>
-          if (v != u) NUM_CHANGES.add(1)
+        (uN_small ++ Iterator(u)).filter(_ != mu) map { v =>
+
+          if(v != u){
+            NUM_CHANGES.add(1)
+          }
           (v, mu)
         }
 

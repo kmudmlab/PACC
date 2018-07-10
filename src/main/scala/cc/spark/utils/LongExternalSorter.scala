@@ -32,13 +32,14 @@
   * Version: 3.0
   */
 
-package cc.utils
+package cc.spark.utils
 
 import java.io.File
 import java.nio.file.{Files, Paths}
 import java.util
 import java.util.Random
 
+import cc.io.{DirectReader, DirectWriter}
 import cc.io.{DirectReader, DirectWriter}
 import org.apache.log4j.{Level, Logger}
 

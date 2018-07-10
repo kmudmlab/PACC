@@ -7,7 +7,7 @@ val versions = Map(
   "spark" -> "2.2.0",
   "scala" -> "2.11.8",
   "logback" -> "1.1.9",
-  "fastutil" -> "7.0.13",
+  "fastutil" -> "8.2.1",
   "scala-logging" -> "3.5.0",
   "scalatest" -> "3.0.1",
   "junit" -> "4.12",
@@ -20,6 +20,11 @@ val versions = Map(
 
 
 scalaVersion := versions("scala")
+
+libraryDependencies ++= Seq(
+  "org.apache.hadoop" % "hadoop-client" % versions("hadoop") % "provided",
+  "it.unimi.dsi" % "fastutil" % versions("fastutil")
+)
 
 //for spark
 libraryDependencies ++= Seq(

@@ -1,4 +1,4 @@
-package cc
+package cc.spark
 
 import java.util.StringTokenizer
 
@@ -9,7 +9,7 @@ import org.scalatest.{FlatSpec, Matchers}
 /**
   * Created by hmpark on 17. 3. 17.
   */
-class PACCLocalOptSpec extends FlatSpec with Matchers {
+class PACCOptSpec extends FlatSpec with Matchers {
 
   Logger.getLogger("org").setLevel(Level.WARN)
   Logger.getLogger("akka").setLevel(Level.WARN)
@@ -19,7 +19,7 @@ class PACCLocalOptSpec extends FlatSpec with Matchers {
   val logger = Logger.getLogger(getClass)
   logger.setLevel(Level.INFO)
 
-  "PACCLocalOpt" should "output the same result with UnionFind" in {
+  "PACCOpt" should "output the same result with UnionFind" in {
 
     val paths = Seq(
       getClass.getResource("/graphs/small/vline"),
@@ -51,7 +51,7 @@ class PACCLocalOptSpec extends FlatSpec with Matchers {
         (st.nextToken().toLong, st.nextToken().toLong)
       }).collect().distinct.sorted
 
-      val res = PACCLocalOpt.run(path.toString, numPartitions, localThreshold, sc).collect().distinct.sorted
+      val res = PACCOpt.run(path.toString, numPartitions, localThreshold, sc).collect().distinct.sorted
 
       res should be (true_result)
 

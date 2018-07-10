@@ -1,4 +1,4 @@
-package cc.utils
+package cc.spark.utils
 
 import org.apache.spark.HashPartitioner
 import org.apache.spark.rdd.RDD

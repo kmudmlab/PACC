@@ -1,10 +1,11 @@
-package cc
+package cc.spark
 
 import java.util.StringTokenizer
 
-import cc.utils.FilteringOps._
-import cc.utils.StarGroupOps._
-import cc.utils.{LongExternalSorter, SerializableConfiguration}
+import cc.spark.utils.FilteringOps._
+import cc.spark.utils.{LongExternalSorter, SerializableConfiguration}
+import cc.spark.utils.StarGroupOps._
+import cc.utils.LongExternalSorter
 import org.apache.hadoop.fs.{FileSystem, Path}
 import org.apache.log4j.Logger
 import org.apache.spark.rdd.RDD
