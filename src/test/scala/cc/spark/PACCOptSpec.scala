@@ -19,7 +19,7 @@ class PACCOptSpec extends FlatSpec with Matchers {
   val logger = Logger.getLogger(getClass)
   logger.setLevel(Level.INFO)
 
-  "PACCOpt" should "output the same result with UnionFind" in {
+  "PACCOpt" should "output the same result with UnionFindJob" in {
 
     val paths = Seq(
       getClass.getResource("/graphs/small/vline"),

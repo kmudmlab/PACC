@@ -19,7 +19,7 @@ class PACCSpec extends FlatSpec with Matchers {
   val logger = Logger.getLogger(getClass)
   logger.setLevel(Level.INFO)
 
-  "PACC" should "output the same result with UnionFind" in {
+  "PACCOpt" should "output the same result with UnionFindJob" in {
 
     val paths = Seq(
       getClass.getResource("/graphs/small/vline"),
@@ -30,7 +30,7 @@ class PACCSpec extends FlatSpec with Matchers {
       getClass.getResource("/graphs/grqc")
     )
 
-    val conf = new SparkConf().setAppName("PACC-test").setMaster("local[1]")
+    val conf = new SparkConf().setAppName("PACCOpt-test").setMaster("local[1]")
       .set("spark.serializer", "org.apache.spark.serializer.KryoSerializer")
       .set("spark.kryoserializer.buffer", "24m")
 

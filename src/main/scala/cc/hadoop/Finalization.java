@@ -50,6 +50,7 @@ import org.apache.hadoop.mapreduce.lib.output.FileOutputFormat;
 import org.apache.hadoop.util.Tool;
 
 import java.io.IOException;
+import java.util.Iterator;
 
 public class Finalization extends Configured implements Tool{
 	
@@ -174,8 +175,6 @@ public class Finalization extends Configured implements Tool{
 		LongWritable ou = new LongWritable();
 		LongWritable ov = new LongWritable();
 		
-		TLongLongHashMap parent;
-
 		/**
 		 * the reduce function.
 		 * It find connected components in a partition.
@@ -189,82 +188,20 @@ public class Finalization extends Configured implements Tool{
 		protected void reduce(IntWritable key, Iterable<LongPairWritable> values,
 				Context context)
 				throws IOException, InterruptedException{
-			
-			parent = new TLongLongHashMap(Constants.DEFAULT_CAPACITY,
-					Constants.DEFAULT_LOAD_FACTOR, -1, -1);
-			
-			this.context = context;
 
-			int[] x = new int[100];
+			UnionFind uf = new UnionFind();
 
+			Iterator<LongPairWritable> it = uf.run(values.iterator());
 
-
-
-			for(LongPairWritable edge : values){
-				long u = edge.i;
-				long v = edge.j;
-				
-				if(find(u) != find(v)){
-					union(u, v);
-				}
-				
-			}
-
-			final Context ctx = context;
-
-			parent.forEachKey(u -> {
-                try{
-                    long v = find(u);
-                    if(u != v){
-                        ou.set(u);
-                        ov.set(v);
-                        ctx.write(ou, ov);
-                    }
-                } catch (Exception ignored){}
-                return true;
-            });
-			
-		}
-
-		/**
-		 * the find function of the union-find algorithm.
-		 * parent table is updated as a side effect
-		 * @param x node to process
-		 * @return component id (smallest node reachable to node x)
-		 */
-		public long find(long x) {
-
-			long p = parent.get(x);
-			if(p != -1){
-				long new_p = find(p);
-				parent.put(x, new_p);
-				return new_p;
-			}
-			else{
-				return x;
+			while(it.hasNext()){
+				LongPairWritable pair = it.next();
+				ou.set(pair.i);
+				ov.set(pair.j);
+				context.write(ou, ov);
 			}
 
 		}
 
-		/**
-		 * the union function of the union-find algorithm.
-		 * It updates parent table to union the two
-		 * @param x a node
-		 * @param y another node
-		 */
-		public void union(long x, long y) {
-			long r1 = find(x);
-			long r2 = find(y);
-
-			if(r1 > r2){
-				parent.put(r1, r2);
-			}
-			else if(r1 < r2){
-				parent.put(r2, r1);
-			}
-		}
-
-		
 	}
 	
 }

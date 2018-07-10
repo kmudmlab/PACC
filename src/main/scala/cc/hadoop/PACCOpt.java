@@ -43,7 +43,7 @@ import org.apache.hadoop.util.ToolRunner;
 import org.apache.log4j.Logger;
 
 
-public class PACC extends Configured implements Tool{
+public class PACCOpt extends Configured implements Tool{
 
 	private Logger logger = Logger.getLogger(getClass());
 
@@ -60,7 +60,7 @@ public class PACC extends Configured implements Tool{
 	 * @throws Exception by hadoop
 	 */
 	public static void main(String[] args) throws Exception{
-		ToolRunner.run(new PACC(), args);
+		ToolRunner.run(new PACCOpt(), args);
 	}
 
 	/**
@@ -142,7 +142,7 @@ public class PACC extends Configured implements Tool{
 			}
 			else{
 
-				UnionFind lcc = new UnionFind(output.suffix("_" + i + "/out"), output.suffix("_" + (i+1) + "/out"));
+				UnionFindJob lcc = new UnionFindJob(output.suffix("_" + i + "/out"), output.suffix("_" + (i+1) + "/out"));
 				
 				time = System.currentTimeMillis();
 				
@@ -176,7 +176,7 @@ public class PACC extends Configured implements Tool{
 			fs.delete(output.suffix("_large_"+r), true);
 		}
 		
-		System.out.print("[PACC-end]\t" + input + "\t" + output + "\t" + numPartitions + "\t" + numReduceTasks + "\t" + localThreshold + "\t" + (i+1) + "\t");
+		System.out.print("[PACCOpt-end]\t" + input + "\t" + output + "\t" + numPartitions + "\t" + numReduceTasks + "\t" + localThreshold + "\t" + (i+1) + "\t");
 		System.out.print( ((System.currentTimeMillis() - totalTime)/1000.0) + "\t" );
 		System.out.println("# input output numPartitions numReduceTasks localThreshold numRounds time(sec)");
 		
