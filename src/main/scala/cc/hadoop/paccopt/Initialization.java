@@ -32,7 +32,7 @@
  * Version: 3.0
  */
 
-package cc.hadoop;
+package cc.hadoop.paccopt;
 
 import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.conf.Configured;

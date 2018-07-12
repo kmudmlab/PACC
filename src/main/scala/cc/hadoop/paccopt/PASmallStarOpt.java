@@ -27,14 +27,15 @@
  * (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS
  * SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  * -------------------------------------------------------------------------
- * File: PASmallStarOpt.java
+ * File: SmallStar.java
  * - the optimized smallstar operation of pacc.
  * Version: 3.0
  */
 
 
-package cc.hadoop;
+package cc.hadoop.paccopt;
 
+import cc.hadoop.Counters;
 import cc.hadoop.utils.ExternalSorter;
 import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.conf.Configured;
@@ -143,7 +144,7 @@ public class PASmallStarOpt extends Configured implements Tool{
 	static public class PASmallStarMapper extends Mapper<LongWritable, LongWritable, LongWritable, LongWritable>{
 
 		/**
-		 * the map function of PASmallStarOpt.
+		 * the map function of SmallStar.
 		 * @param u source node
 		 * @param v destination node
 		 * @param context of hadoop
@@ -162,7 +163,7 @@ public class PASmallStarOpt extends Configured implements Tool{
 	static public class PASmallStarCombiner extends Reducer<LongWritable, LongWritable, LongWritable, LongWritable>{
 
 		/**
-		 * the combiner function of PASmallStarOpt
+		 * the combiner function of SmallStar
 		 * @param key source node
 		 * @param values destination nodes
 		 * @param context of hadoop
@@ -295,7 +296,7 @@ public class PASmallStarOpt extends Configured implements Tool{
 		}
 
 		/**
-		 * the reudce function of PASmallStarOpt
+		 * the reudce function of SmallStar
 		 * @param key source node
 		 * @param values destination nodes
 		 * @param context of hadoop

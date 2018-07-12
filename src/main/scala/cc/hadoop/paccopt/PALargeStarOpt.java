@@ -27,14 +27,15 @@
  * (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS
  * SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  * -------------------------------------------------------------------------
- * File: PALargeStarOpt.java
+ * File: LargeStar.java
  * - the optimized largestar operation of pacc.
  * Version: 3.0
  */
 
 
-package cc.hadoop;
+package cc.hadoop.paccopt;
 
+import cc.hadoop.Counters;
 import cc.hadoop.utils.ExternalSorter;
 import org.apache.hadoop.conf.Configured;
 import org.apache.hadoop.fs.FileSystem;
@@ -65,11 +66,11 @@ public class PALargeStarOpt extends Configured implements Tool{
 	private final Path output;
 	private final String title;
 	private final boolean verbose;
-	long numChanges;
-	long inputSize;
-	long outSize;
-	long ccSize;
-	long inSize;
+    public long numChanges;
+    public long inputSize;
+	public long outSize;
+    public long ccSize;
+    public long inSize;
 
 	/**
 	 * constructor
@@ -77,7 +78,7 @@ public class PALargeStarOpt extends Configured implements Tool{
 	 * @param output file path
 	 * @param verbose if true, it prints log verbosely.
 	 */
-	PALargeStarOpt(Path input, Path output, boolean verbose){
+	public PALargeStarOpt(Path input, Path output, boolean verbose){
 		this.input = input;
 		this.output = output;
 		this.verbose = verbose;
@@ -146,7 +147,7 @@ public class PALargeStarOpt extends Configured implements Tool{
 	static public class ColorLargeStarMapper extends Mapper<LongWritable, LongWritable, LongWritable, LongWritable>{
 
 		/**
-		 * the map function of PALargeStarOpt.
+		 * the map function of LargeStar.
 		 * @param u source node
 		 * @param v destination node
 		 * @param context of hadoop
@@ -179,7 +180,7 @@ public class PALargeStarOpt extends Configured implements Tool{
         }
 
 		/**
-		 * the combiner function of PALargeStarOpt
+		 * the combiner function of LargeStar
 		 * @param _u source node
 		 * @param values destination nodes
 		 * @param context of hadoop
@@ -300,7 +301,7 @@ public class PALargeStarOpt extends Configured implements Tool{
         }
 
 		/**
-		 * the reduce function of PALargeStarOpt
+		 * the reduce function of LargeStar
 		 * @param key source node
 		 * @param values destination nodes
 		 * @param context of hadoop

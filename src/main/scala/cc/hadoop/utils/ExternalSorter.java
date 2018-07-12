@@ -290,7 +290,7 @@ public class ExternalSorter {
 
     }
 
-    static class LocalPaths {
+    static public class LocalPaths {
 
         private final static Logger LOGGER = Logger.getLogger(LocalPaths.class.getName());
 

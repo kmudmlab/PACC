@@ -32,8 +32,9 @@
  * Version: 3.0
  */
 
-package cc.hadoop;
+package cc.hadoop.paccopt;
 
+import cc.hadoop.UnionFind;
 import cc.hadoop.utils.LongPairWritable;
 import org.apache.hadoop.conf.Configured;
 import org.apache.hadoop.fs.FileSystem;
