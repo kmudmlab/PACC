@@ -166,7 +166,7 @@ public class SmallStar extends Configured implements Tool{
         };
 
 		/**
-		 * the reudce function of SmallStar
+		 * the reudce function of SmallStarOpt
 		 * @param key source node
 		 * @param values destination nodes
 		 * @param context of hadoop

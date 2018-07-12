@@ -144,7 +144,7 @@ public class PASmallStarOpt extends Configured implements Tool{
 	static public class PASmallStarMapper extends Mapper<LongWritable, LongWritable, LongWritable, LongWritable>{
 
 		/**
-		 * the map function of SmallStar.
+		 * the map function of SmallStarOpt.
 		 * @param u source node
 		 * @param v destination node
 		 * @param context of hadoop
@@ -163,7 +163,7 @@ public class PASmallStarOpt extends Configured implements Tool{
 	static public class PASmallStarCombiner extends Reducer<LongWritable, LongWritable, LongWritable, LongWritable>{
 
 		/**
-		 * the combiner function of SmallStar
+		 * the combiner function of SmallStarOpt
 		 * @param key source node
 		 * @param values destination nodes
 		 * @param context of hadoop
@@ -296,7 +296,7 @@ public class PASmallStarOpt extends Configured implements Tool{
 		}
 
 		/**
-		 * the reudce function of SmallStar
+		 * the reudce function of SmallStarOpt
 		 * @param key source node
 		 * @param values destination nodes
 		 * @param context of hadoop

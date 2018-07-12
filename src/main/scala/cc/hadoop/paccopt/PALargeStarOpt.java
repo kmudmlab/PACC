@@ -147,7 +147,7 @@ public class PALargeStarOpt extends Configured implements Tool{
 	static public class ColorLargeStarMapper extends Mapper<LongWritable, LongWritable, LongWritable, LongWritable>{
 
 		/**
-		 * the map function of LargeStar.
+		 * the map function of LargeStarOpt.
 		 * @param u source node
 		 * @param v destination node
 		 * @param context of hadoop
@@ -180,7 +180,7 @@ public class PALargeStarOpt extends Configured implements Tool{
         }
 
 		/**
-		 * the combiner function of LargeStar
+		 * the combiner function of LargeStarOpt
 		 * @param _u source node
 		 * @param values destination nodes
 		 * @param context of hadoop
@@ -301,7 +301,7 @@ public class PALargeStarOpt extends Configured implements Tool{
         }
 
 		/**
-		 * the reduce function of LargeStar
+		 * the reduce function of LargeStarOpt
 		 * @param key source node
 		 * @param values destination nodes
 		 * @param context of hadoop

@@ -126,7 +126,7 @@ public class LargeStar extends Configured implements Tool{
 	static public class LargeStarMapper extends Mapper<LongWritable, LongWritable, LongWritable, LongWritable>{
 
 		/**
-		 * the map function of LargeStar.
+		 * the map function of LargeStarOpt.
 		 * @param u source node
 		 * @param v destination node
 		 * @param context of hadoop
@@ -145,7 +145,7 @@ public class LargeStar extends Configured implements Tool{
         LongWritable ov = new LongWritable();
 
 		/**
-		 * the combiner function of LargeStar
+		 * the combiner function of LargeStarOpt
 		 * @param _u source node
 		 * @param values destination nodes
 		 * @param context of hadoop
@@ -214,7 +214,7 @@ public class LargeStar extends Configured implements Tool{
 		};
 
 		/**
-		 * the reduce function of LargeStar
+		 * the reduce function of LargeStarOpt
 		 * @param key source node
 		 * @param values destination nodes
 		 * @param context of hadoop

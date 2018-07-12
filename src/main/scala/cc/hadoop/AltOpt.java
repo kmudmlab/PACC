@@ -102,7 +102,6 @@ public class AltOpt extends Configured implements Tool{
 		long totalTime = time;
 
 
-
 		Initialization init = new Initialization(input, output.suffix("_0"), verbose);
 		
 		ToolRunner.run(conf, init, null);
