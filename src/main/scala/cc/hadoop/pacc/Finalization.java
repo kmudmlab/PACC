@@ -54,23 +54,22 @@ import java.io.IOException;
 import java.util.Iterator;
 
 public class Finalization extends Configured implements Tool{
-	
+
+    private final Path input;
 	private final Path output;
 	private final String title;
 	private final boolean verbose;
-	private final int numRounds;
 	public long inputSize;
 
 	/**
 	 * constructor
 	 * @param output file path
-	 * @param numRounds the number of rounds conducted until now.
 	 * @param verbose if true, log is printed verbosely.
 	 */
-	public Finalization(Path output, int numRounds, boolean verbose){
+	public Finalization(Path input, Path output, boolean verbose){
+	    this.input = input;
 		this.output = output;
 		this.verbose = verbose;
-		this.numRounds = numRounds;
 		this.title = String.format("[%s]%s", this.getClass().getSimpleName(), output.getName());
 	}
 
@@ -82,7 +81,7 @@ public class Finalization extends Configured implements Tool{
 	 */
 	public int run(String[] args) throws Exception{
 		
-		Job job = new Job(getConf(), title);
+		Job job = Job.getInstance(getConf(), title);
 		
 		job.setJarByClass(this.getClass());
 		
@@ -94,25 +93,8 @@ public class Finalization extends Configured implements Tool{
 		job.setMapperClass(LargeStarMapper.class);
 		job.setReducerClass(LargeStarReducer.class);
 		job.setInputFormatClass(SequenceFileInputFormat.class);
-		
-		FileSystem fs = FileSystem.get(getConf());
-		
-		
-		for(int i=1; i<=numRounds; i++){
-			if(fs.exists(output.suffix("_" + i + "/in"))){
-				FileInputFormat.addInputPath(job, output.suffix("_" + i + "/in"));
-			}
-			if(fs.exists(output.suffix("_large_" + i + "/final"))){
-				FileInputFormat.addInputPath(job, output.suffix("_large_" + i + "/final"));
-			}
-			
-		}
-		
-		if(fs.exists(output.suffix("_" + numRounds + "/out"))){
-			FileInputFormat.addInputPath(job, output.suffix("_" + numRounds + "/out"));
-		}
-		
-		
+
+		FileInputFormat.addInputPath(job, input);
 		FileOutputFormat.setOutputPath(job, output);
 		
 		FileSystem.get(getConf()).delete(output, true);
@@ -147,24 +129,19 @@ public class Finalization extends Configured implements Tool{
 
 		/**
 		 * the map function.
-		 * @param u source node
-		 * @param v destination node
+		 * @param _u source node
+		 * @param _v destination node
 		 * @param context of hadoop
 		 * @throws IOException by hadoop
 		 * @throws InterruptedException by hadoop
 		 */
 		@Override
-		protected void map(LongWritable u, LongWritable v,
-				Context context)
-				throws IOException, InterruptedException{
-			long uu = u.get();
-			long vv = v.get();
-			
-			uu = uu < 0 ? -uu - 1: uu;
-			vv = vv < 0 ? -vv - 1: vv;
-			
-			p.set((int) (uu % numPartitions));
-			edge.set(uu, vv);
+		protected void map(LongWritable _u, LongWritable _v, Context context) throws IOException, InterruptedException{
+			long u = _u.get();
+			long v = _v.get();
+
+			p.set(Long.hashCode(u) % numPartitions);
+			edge.set(u, v);
 			context.write(p, edge);
 		}
 		
@@ -172,7 +149,6 @@ public class Finalization extends Configured implements Tool{
 	
 	static public class LargeStarReducer extends Reducer<IntWritable, LongPairWritable, LongWritable, LongWritable>{
 
-		Context context;
 		LongWritable ou = new LongWritable();
 		LongWritable ov = new LongWritable();
 		

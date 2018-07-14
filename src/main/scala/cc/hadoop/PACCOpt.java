@@ -180,7 +180,7 @@ public class PACCOpt extends Configured implements Tool{
 			fs.delete(output.suffix("_large_"+r), true);
 		}
 		
-		System.out.print("[PACCOpt-end]\t" + input + "\t" + output + "\t" + numPartitions + "\t" + numReduceTasks + "\t" + localThreshold + "\t" + (i+1) + "\t");
+		System.out.print("[PACCOpt-end]\t" + input.getName() + "\t" + output.getName() + "\t" + numPartitions + "\t" + numReduceTasks + "\t" + localThreshold + "\t" + (i+1) + "\t");
 		System.out.print( ((System.currentTimeMillis() - totalTime)/1000.0) + "\t" );
 		System.out.println("# input output numPartitions numReduceTasks localThreshold numRounds time(sec)");
 		

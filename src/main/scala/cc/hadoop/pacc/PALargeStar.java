@@ -190,7 +190,7 @@ public class PALargeStar extends Configured implements Tool{
                 long v = _v.get();
 
                 if(v < u){
-                    int vp = (int) (v % numPartitions);
+                    int vp = Long.hashCode(v) % numPartitions;
                     mcu[vp] = Math.min(mcu[vp], v);
                 }
                 else{
@@ -263,7 +263,7 @@ public class PALargeStar extends Configured implements Tool{
 				throws IOException, InterruptedException{
 
 			long u = key.get();
-			int uPartition = (int) (u % numPartitions);
+			int uPartition = Long.hashCode(u) % numPartitions;
 			long numChanges = 0;
 
 			Arrays.fill(mcu, Long.MAX_VALUE);

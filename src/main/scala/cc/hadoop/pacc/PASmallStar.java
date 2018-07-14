@@ -59,6 +59,8 @@ import java.io.IOException;
 import java.util.Arrays;
 import java.util.Iterator;
 import java.util.NoSuchElementException;
+import java.util.function.Predicate;
+import java.util.stream.StreamSupport;
 
 public class PASmallStar extends Configured implements Tool{
 	
@@ -115,9 +117,8 @@ public class PASmallStar extends Configured implements Tool{
 		job.setOutputKeyClass(LongWritable.class);
 		job.setOutputValueClass(LongWritable.class);
 		
-		job.setMapperClass(PASmallStarMapper.class);
+		job.setMapperClass(Mapper.class);
 		job.setReducerClass(PASmallStarReducer.class);
-		job.setCombinerClass(PASmallStarCombiner.class);
 		job.setInputFormatClass(SequenceFileInputFormat.class);
 		LazyOutputFormat.setOutputFormatClass(job, SequenceFileOutputFormat.class);
 		
@@ -139,159 +140,47 @@ public class PASmallStar extends Configured implements Tool{
 		return 0;
 	}
 
-	static public class PASmallStarMapper extends Mapper<LongWritable, LongWritable, LongWritable, LongWritable>{
-
-		/**
-		 * the map function of SmallStarOpt.
-		 * @param u source node
-		 * @param v destination node
-		 * @param context of hadoop
-		 * @throws IOException by hadoop
-		 * @throws InterruptedException by hadoop
-		 */
-		@Override
-		protected void map(LongWritable u, LongWritable v, Context context)
-				throws IOException, InterruptedException{
-				context.write(u, v);
-				context.write(v, u);
-		}
-	}
-
-
-	static public class PASmallStarCombiner extends Reducer<LongWritable, LongWritable, LongWritable, LongWritable>{
-
-		/**
-		 * the combiner function of SmallStarOpt
-		 * @param key source node
-		 * @param values destination nodes
-		 * @param context of hadoop
-		 * @throws IOException by hadoop
-		 * @throws InterruptedException by hadoop
-		 */
-		@Override
-		protected void reduce(LongWritable key, Iterable<LongWritable> values,
-				Context context)
-				throws IOException, InterruptedException{
-			
-			long u = key.get();
-			
-			long m = u;
-			
-			for(LongWritable _v : values){
-				long v = _v.get();
-				if(v < u){
-					context.write(key, _v);
-				}
-				else if(v > m) m = v;
-			}
-			
-			if(u != m){
-				context.write(key, new LongWritable(m));
-			}
-			
-		}
-
-	}
-
 	static public class PASmallStarReducer extends Reducer<LongWritable, LongWritable, LongWritable, LongWritable>{
-
-		/**
-		 * cleanup after execution. It closes the output stream.
-		 * @param context of hadoop
-		 * @throws IOException by hadoop
-		 * @throws InterruptedException by hadoop
-		 */
-		@Override
-		protected void cleanup(
-				Context context)
-				throws IOException, InterruptedException{
-			
-			mout.close();
-		}
 
 		private int numPartitions;
 		private long[] mcu;
-		MultipleOutputs<LongWritable, LongWritable> mout;
 
 		ExternalSorter sorter;
 
 		/**
 		 * setup before execution
 		 * @param context of hadoop
-		 * @throws IOException by hadoop
-		 * @throws InterruptedException by hadoop
 		 */
 		@Override
-		protected void setup(
-				Context context)
-				throws IOException, InterruptedException{
+        protected void setup(Context context){
 
 			numPartitions = context.getConfiguration().getInt("numPartitions", 1);
 			mcu = new long[numPartitions];
 
 			String[] tmpPaths = context.getConfiguration().getTrimmedStrings("yarn.nodemanager.local-dirs");
 			sorter = new ExternalSorter(tmpPaths);
-
-			mout = new MultipleOutputs<LongWritable, LongWritable>(context);
-			
 		}
 		
-		LongWritable ok = new LongWritable();
+		LongWritable om = new LongWritable();
 		LongWritable ov = new LongWritable();
 
+        class PredicateWithMin implements Predicate<Long> {
 
-		class SmallIterator implements Iterator<Long> {
+            long u;
 
-			long[] mcu;
-			long u;
+            PredicateWithMin(long u) {
+                this.u = u;
+            }
 
-			private Iterator<LongWritable> origin;
-			boolean isLeaf = true;
-			long hd = -1;
-			boolean hdDefined = false;
+            public boolean test(Long v) {
 
-			public SmallIterator(Iterable<LongWritable> origin, long u, long[] mcu){
-				this.origin = origin.iterator();
-				this.mcu = mcu;
-				this.u = u;
-			}
+                int vp = v.hashCode() % numPartitions;
 
-			@Override
-			public boolean hasNext() {
+                mcu[vp] = Math.min(v, mcu[vp]);
 
-				if(hdDefined){
-					return true;
-				}
-				else{
-					while(origin.hasNext()){
-						long v = origin.next().get();
-
-						if(v > u) isLeaf = false;
-
-						int vp = (int) (v % numPartitions);
-						if(v < mcu[vp]) mcu[vp] = v;
-						if(v < u){
-							hd = v;
-							hdDefined = true;
-							return true;
-						}
-					}
-					return false;
-				}
-
-			}
-
-			@Override
-			public Long next() {
-				if(hdDefined || hasNext()){
-					hdDefined = false;
-					return hd;
-				}
-				else{
-					throw new NoSuchElementException();
-				}
-			}
-		}
+                return true;
+            }
+        }
 
 		/**
 		 * the reudce function of SmallStarOpt
@@ -307,68 +196,57 @@ public class PASmallStar extends Configured implements Tool{
 				throws IOException, InterruptedException{
 
 			long u = key.get();
-			int up = (int) (u % numPartitions);
+			int up = Long.hashCode(u) % numPartitions;
 
 			long numChanges = 0;
-			long outSize = 0;
-			long inSize = 0;
 
 			Arrays.fill(mcu, Long.MAX_VALUE);
 			mcu[up] = u;
 
-			SmallIterator it_before = new SmallIterator(values, u, mcu);
+            PredicateWithMin lfilter = new PredicateWithMin(u);
 
+			Iterator<Long> it = StreamSupport.stream(values.spliterator(), false)
+					.map(LongWritable::get).filter(lfilter).iterator();
 
-			Iterator<Long> it = sorter.sort(it_before);
-
-			boolean isLeaf = it_before.isLeaf;
+			Iterator<Long> uN_small = sorter.sort(it);
 
 			//mu: global minimum value.
 			long mu = Arrays.stream(mcu).min().getAsLong();
 
-			if(u != mcu[up]){ // u is not local minimum
-				ok.set(u);
-				ov.set(mcu[up]);
+            long mcu_up = mcu[up];
 
-				if (isLeaf) {
-					inSize++;
-					mout.write(ok, ov, "in/part");
-				}
-				else{
-					outSize++;
-					mout.write(ok, ov, "out/part");
-				}
+            if(u != mcu_up){
+                ov.set(u);
+                om.set(mcu_up);
+                context.write(ov, om);
+            }
+            else{
+                ov.set(u);
+                om.set(mu);
+                context.write(ov, om);
+            }
+
+			while(uN_small.hasNext()){
+				long v = uN_small.next();
+				int vp = Long.hashCode(v) % numPartitions;
+				long mcu_vp = mcu[vp];
+
+
+				if(v != mcu_vp){
+				    numChanges++;
+				    ov.set(v);
+				    om.set(mcu_vp);
+				    context.write(ov, om);
+                }
+                else if(v != mu){
+				    numChanges++;
+				    ov.set(v);
+				    om.set(mu);
+				    context.write(ov, om);
+                }
 			}
-			else if (u != mu) { // u is the minimum in local but not in global
-				outSize++;
-				ok.set(isLeaf ? ~u : u);
-				ov.set(mu);
-				mout.write(ok, ov, "out/part");
-			}
-
-			while(it.hasNext()){
-				long v = it.next();
-				int vp = (int) (v % numPartitions);
-
-				if(v != mcu[vp]){
-					ok.set(v);
-					ov.set(mcu[vp]);
-					mout.write(ok, ov, "out/part");
-					numChanges++;
-				}
-				else if(v != mu){
-					ok.set(v);
-					ov.set(mu);
-					mout.write(ok, ov, "out/part");
-					numChanges++;
-				}
-			}
-
-			outSize += numChanges;
 
 			context.getCounter(Counters.NUM_CHANGES).increment(numChanges);
-			context.getCounter(Counters.OUT_SIZE).increment(outSize);
-			context.getCounter(Counters.IN_SIZE).increment(inSize);
 		}
 		
 	}
