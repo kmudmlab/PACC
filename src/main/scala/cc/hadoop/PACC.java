@@ -34,10 +34,10 @@
 
 package cc.hadoop;
 
-import cc.hadoop.paccopt.Finalization;
-import cc.hadoop.paccopt.Initialization;
-import cc.hadoop.paccopt.PALargeStarOpt;
-import cc.hadoop.paccopt.PASmallStarOpt;
+import cc.hadoop.pacc.Finalization;
+import cc.hadoop.pacc.Initialization;
+import cc.hadoop.pacc.PALargeStar;
+import cc.hadoop.pacc.PASmallStar;
 import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.conf.Configured;
 import org.apache.hadoop.fs.FileSystem;
@@ -112,8 +112,8 @@ public class PACC extends Configured implements Tool{
 
 		logger.info("Round 0 (init) ends :\t" + ((System.currentTimeMillis() - time)/1000.0));
 
-		PALargeStarOpt largeStar;
-		PASmallStarOpt smallStar;
+		PALargeStar largeStar;
+		PASmallStar smallStar;
 		
 		long numEdges = init.outputSize;
 		long numChanges;
@@ -126,11 +126,11 @@ public class PACC extends Configured implements Tool{
 
 				time = System.currentTimeMillis();
 
-				largeStar = new PALargeStarOpt(output.suffix("_" + i + "/out"), output.suffix("_large_" + i), verbose); 
+				largeStar = new PALargeStar(output.suffix("_" + i + "/out"), output.suffix("_large_" + i), verbose);
 				ToolRunner.run(conf, largeStar, null);
 				fs.delete(output.suffix("_" + i + "/out"), true);
 
-				smallStar = new PASmallStarOpt(output.suffix("_large_" + i + "/out"), output.suffix("_" + (i + 1)), verbose);
+				smallStar = new PASmallStar(output.suffix("_large_" + i + "/out"), output.suffix("_" + (i + 1)), verbose);
 				ToolRunner.run(conf, smallStar, null);
 				fs.delete(output.suffix("_large_" + i + "/out"), true);
 
@@ -180,7 +180,7 @@ public class PACC extends Configured implements Tool{
 			fs.delete(output.suffix("_large_"+r), true);
 		}
 		
-		System.out.print("[PACCOpt-end]\t" + input + "\t" + output + "\t" + numPartitions + "\t" + numReduceTasks + "\t" + localThreshold + "\t" + (i+1) + "\t");
+		System.out.print("[PACC-end]\t" + input + "\t" + output + "\t" + numPartitions + "\t" + numReduceTasks + "\t" + localThreshold + "\t" + (i+1) + "\t");
 		System.out.print( ((System.currentTimeMillis() - totalTime)/1000.0) + "\t" );
 		System.out.println("# input output numPartitions numReduceTasks localThreshold numRounds time(sec)");
 		

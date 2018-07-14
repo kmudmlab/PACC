@@ -1,0 +1,376 @@
+/*
+ * PegasusN: Peta-Scale Graph Mining System (Pegasus v3.0)
+ * Authors: Chiwan Park, Ha-Myung Park, U Kang
+ *
+ * Copyright (c) 2018, Ha-Myung Park, Chiwan Park, and U Kang
+ * All rights reserved.
+ *
+ * Redistribution and use in source and binary forms, with or without
+ * modification, are permitted provided that the following conditions are met:
+ *     * Redistributions of source code must retain the above copyright
+ *       notice, this list of conditions and the following disclaimer.
+ *     * Redistributions in binary form must reproduce the above copyright
+ *       notice, this list of conditions and the following disclaimer in the
+ *       documentation and/or other materials provided with the distribution.
+ *     * Neither the name of the Seoul National University nor the
+ *       names of its contributors may be used to endorse or promote products
+ *       derived from this software without specific prior written permission.
+ *
+ * THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS" AND
+ * ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED
+ * WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE
+ * DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT HOLDERS BE LIABLE FOR ANY
+ * DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES
+ * (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES;
+ * LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND
+ * ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
+ * (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS
+ * SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+ * -------------------------------------------------------------------------
+ * File: SmallStar.java
+ * - the optimized smallstar operation of pacc.
+ * Version: 3.0
+ */
+
+
+package cc.hadoop.pacc;
+
+import cc.hadoop.Counters;
+import cc.hadoop.utils.ExternalSorter;
+import org.apache.hadoop.conf.Configuration;
+import org.apache.hadoop.conf.Configured;
+import org.apache.hadoop.fs.FileSystem;
+import org.apache.hadoop.fs.Path;
+import org.apache.hadoop.io.LongWritable;
+import org.apache.hadoop.mapreduce.Job;
+import org.apache.hadoop.mapreduce.Mapper;
+import org.apache.hadoop.mapreduce.Reducer;
+import org.apache.hadoop.mapreduce.TaskCounter;
+import org.apache.hadoop.mapreduce.lib.input.FileInputFormat;
+import org.apache.hadoop.mapreduce.lib.input.SequenceFileInputFormat;
+import org.apache.hadoop.mapreduce.lib.output.FileOutputFormat;
+import org.apache.hadoop.mapreduce.lib.output.LazyOutputFormat;
+import org.apache.hadoop.mapreduce.lib.output.MultipleOutputs;
+import org.apache.hadoop.mapreduce.lib.output.SequenceFileOutputFormat;
+import org.apache.hadoop.util.Tool;
+import org.apache.hadoop.util.ToolRunner;
+
+import java.io.IOException;
+import java.util.Arrays;
+import java.util.Iterator;
+import java.util.NoSuchElementException;
+
+public class PASmallStar extends Configured implements Tool{
+	
+	private final Path input;
+	private final Path output;
+	private final String title;
+	private final boolean verbose;
+	public long numChanges;
+	public long inputSize;
+	public long outSize;
+
+	/**
+	 * constructor
+	 * @param input file path
+	 * @param output file path
+	 * @param verbose if true, it prints log verbosely.
+	 */
+	public PASmallStar(Path input, Path output, boolean verbose){
+		this.input = input;
+		this.output = output;
+		this.verbose = verbose;
+		this.title = String.format("[%s]%s", this.getClass().getSimpleName(), input.getName());
+	}
+
+	/**
+	 * the main entry point
+	 * @param args [0]: input file path, [1]: output file path, and tool runner parameters inherited from pacc
+	 * @throws Exception by hadoop
+	 */
+	public static void main(String[] args) throws Exception{
+		
+		Path input = new Path(args[0]);
+		Path output = new Path(args[1]);
+		
+		ToolRunner.run(new PASmallStar(input, output, true), args);
+	}
+
+	/**
+	 * submit the hadoop job
+	 * @param args tool runner parameters inherited from pacc
+	 * @return not used
+	 * @throws Exception by hadoop
+	 */
+	public int run(String[] args) throws Exception{
+		
+		Configuration conf = getConf(); 
+		
+		Job job = Job.getInstance(conf, title);
+		
+		job.setJarByClass(this.getClass());
+		
+		job.setMapOutputKeyClass(LongWritable.class);
+		job.setMapOutputValueClass(LongWritable.class);
+		job.setOutputKeyClass(LongWritable.class);
+		job.setOutputValueClass(LongWritable.class);
+		
+		job.setMapperClass(PASmallStarMapper.class);
+		job.setReducerClass(PASmallStarReducer.class);
+		job.setCombinerClass(PASmallStarCombiner.class);
+		job.setInputFormatClass(SequenceFileInputFormat.class);
+		LazyOutputFormat.setOutputFormatClass(job, SequenceFileOutputFormat.class);
+		
+		FileInputFormat.addInputPath(job, input);
+		FileOutputFormat.setOutputPath(job, output);
+		
+		FileSystem fs = FileSystem.get(conf);
+		
+		
+		fs.delete(output, true);
+		
+		if(fs.exists(input)){
+			job.waitForCompletion(verbose);
+			this.numChanges = job.getCounters().findCounter(Counters.NUM_CHANGES).getValue();
+			this.inputSize = job.getCounters().findCounter(TaskCounter.MAP_INPUT_RECORDS).getValue();
+			this.outSize = job.getCounters().findCounter(TaskCounter.REDUCE_OUTPUT_RECORDS).getValue();
+		}
+		
+		return 0;
+	}
+
+	static public class PASmallStarMapper extends Mapper<LongWritable, LongWritable, LongWritable, LongWritable>{
+
+		/**
+		 * the map function of SmallStarOpt.
+		 * @param u source node
+		 * @param v destination node
+		 * @param context of hadoop
+		 * @throws IOException by hadoop
+		 * @throws InterruptedException by hadoop
+		 */
+		@Override
+		protected void map(LongWritable u, LongWritable v, Context context)
+				throws IOException, InterruptedException{
+				context.write(u, v);
+				context.write(v, u);
+		}
+	}
+
+
+	static public class PASmallStarCombiner extends Reducer<LongWritable, LongWritable, LongWritable, LongWritable>{
+
+		/**
+		 * the combiner function of SmallStarOpt
+		 * @param key source node
+		 * @param values destination nodes
+		 * @param context of hadoop
+		 * @throws IOException by hadoop
+		 * @throws InterruptedException by hadoop
+		 */
+		@Override
+		protected void reduce(LongWritable key, Iterable<LongWritable> values,
+				Context context)
+				throws IOException, InterruptedException{
+			
+			long u = key.get();
+			
+			long m = u;
+			
+			for(LongWritable _v : values){
+				long v = _v.get();
+				if(v < u){
+					context.write(key, _v);
+				}
+				else if(v > m) m = v;
+			}
+			
+			if(u != m){
+				context.write(key, new LongWritable(m));
+			}
+			
+		}
+
+	}
+
+	static public class PASmallStarReducer extends Reducer<LongWritable, LongWritable, LongWritable, LongWritable>{
+
+		/**
+		 * cleanup after execution. It closes the output stream.
+		 * @param context of hadoop
+		 * @throws IOException by hadoop
+		 * @throws InterruptedException by hadoop
+		 */
+		@Override
+		protected void cleanup(
+				Context context)
+				throws IOException, InterruptedException{
+			
+			mout.close();
+		}
+
+		private int numPartitions;
+		private long[] mcu;
+		MultipleOutputs<LongWritable, LongWritable> mout;
+
+		ExternalSorter sorter;
+
+		/**
+		 * setup before execution
+		 * @param context of hadoop
+		 * @throws IOException by hadoop
+		 * @throws InterruptedException by hadoop
+		 */
+		@Override
+		protected void setup(
+				Context context)
+				throws IOException, InterruptedException{
+
+			numPartitions = context.getConfiguration().getInt("numPartitions", 1);
+			mcu = new long[numPartitions];
+
+			String[] tmpPaths = context.getConfiguration().getTrimmedStrings("yarn.nodemanager.local-dirs");
+			sorter = new ExternalSorter(tmpPaths);
+
+			mout = new MultipleOutputs<LongWritable, LongWritable>(context);
+			
+		}
+		
+		LongWritable ok = new LongWritable();
+		LongWritable ov = new LongWritable();
+
+
+		class SmallIterator implements Iterator<Long> {
+
+			long[] mcu;
+			long u;
+
+			private Iterator<LongWritable> origin;
+			boolean isLeaf = true;
+			long hd = -1;
+			boolean hdDefined = false;
+
+			public SmallIterator(Iterable<LongWritable> origin, long u, long[] mcu){
+				this.origin = origin.iterator();
+				this.mcu = mcu;
+				this.u = u;
+			}
+
+			@Override
+			public boolean hasNext() {
+
+				if(hdDefined){
+					return true;
+				}
+				else{
+					while(origin.hasNext()){
+						long v = origin.next().get();
+
+						if(v > u) isLeaf = false;
+
+						int vp = (int) (v % numPartitions);
+						if(v < mcu[vp]) mcu[vp] = v;
+						if(v < u){
+							hd = v;
+							hdDefined = true;
+							return true;
+						}
+					}
+					return false;
+				}
+
+			}
+
+			@Override
+			public Long next() {
+				if(hdDefined || hasNext()){
+					hdDefined = false;
+					return hd;
+				}
+				else{
+					throw new NoSuchElementException();
+				}
+			}
+		}
+
+		/**
+		 * the reudce function of SmallStarOpt
+		 * @param key source node
+		 * @param values destination nodes
+		 * @param context of hadoop
+		 * @throws IOException by hadoop
+		 * @throws InterruptedException by hadoop
+		 */
+		@Override
+		protected void reduce(LongWritable key, Iterable<LongWritable> values,
+				Context context)
+				throws IOException, InterruptedException{
+
+			long u = key.get();
+			int up = (int) (u % numPartitions);
+
+			long numChanges = 0;
+			long outSize = 0;
+			long inSize = 0;
+
+			Arrays.fill(mcu, Long.MAX_VALUE);
+			mcu[up] = u;
+
+			SmallIterator it_before = new SmallIterator(values, u, mcu);
+
+
+			Iterator<Long> it = sorter.sort(it_before);
+
+			boolean isLeaf = it_before.isLeaf;
+
+			//mu: global minimum value.
+			long mu = Arrays.stream(mcu).min().getAsLong();
+
+			if(u != mcu[up]){ // u is not local minimum
+				ok.set(u);
+				ov.set(mcu[up]);
+
+				if (isLeaf) {
+					inSize++;
+					mout.write(ok, ov, "in/part");
+				}
+				else{
+					outSize++;
+					mout.write(ok, ov, "out/part");
+				}
+			}
+			else if (u != mu) { // u is the minimum in local but not in global
+				outSize++;
+				ok.set(isLeaf ? ~u : u);
+				ov.set(mu);
+				mout.write(ok, ov, "out/part");
+			}
+
+			while(it.hasNext()){
+				long v = it.next();
+				int vp = (int) (v % numPartitions);
+
+				if(v != mcu[vp]){
+					ok.set(v);
+					ov.set(mcu[vp]);
+					mout.write(ok, ov, "out/part");
+					numChanges++;
+				}
+				else if(v != mu){
+					ok.set(v);
+					ov.set(mu);
+					mout.write(ok, ov, "out/part");
+					numChanges++;
+				}
+			}
+
+			outSize += numChanges;
+
+			context.getCounter(Counters.NUM_CHANGES).increment(numChanges);
+			context.getCounter(Counters.OUT_SIZE).increment(outSize);
+			context.getCounter(Counters.IN_SIZE).increment(inSize);
+		}
+		
+	}
+	
+}

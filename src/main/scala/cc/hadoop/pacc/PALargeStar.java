@@ -33,7 +33,7 @@
  */
 
 
-package cc.hadoop.altopt;
+package cc.hadoop.pacc;
 
 import cc.hadoop.Counters;
 import cc.hadoop.utils.ExternalSorter;
@@ -50,15 +50,16 @@ import org.apache.hadoop.mapreduce.lib.input.SequenceFileInputFormat;
 import org.apache.hadoop.mapreduce.lib.output.FileOutputFormat;
 import org.apache.hadoop.mapreduce.lib.output.SequenceFileOutputFormat;
 import org.apache.hadoop.util.Tool;
+import org.apache.hadoop.util.ToolRunner;
 
 import java.io.IOException;
+import java.util.Arrays;
 import java.util.Iterator;
 import java.util.function.Predicate;
 import java.util.stream.StreamSupport;
 
 
-
-public class LargeStarOpt extends Configured implements Tool{
+public class PALargeStar extends Configured implements Tool{
 
 	private final Path input;
 	private final Path output;
@@ -74,11 +75,24 @@ public class LargeStarOpt extends Configured implements Tool{
 	 * @param output file path
 	 * @param verbose if true, it prints log verbosely.
 	 */
-	public LargeStarOpt(Path input, Path output, boolean verbose){
+	public PALargeStar(Path input, Path output, boolean verbose){
 		this.input = input;
 		this.output = output;
 		this.verbose = verbose;
 		this.title = String.format("[%s]%s", this.getClass().getSimpleName(), output.getName());
+	}
+
+	/**
+	 * the main entry point
+	 * @param args [0]: input file path, [1]: output file path, and tool runner arguments inherited from pacc
+	 * @throws Exception of hadoop
+	 */
+	public static void main(String[] args) throws Exception{
+
+		Path input = new Path(args[0]);
+		Path output = new Path(args[1]);
+
+		ToolRunner.run(new PALargeStar(input, output, true), args);
 	}
 
 	/**
@@ -98,11 +112,12 @@ public class LargeStarOpt extends Configured implements Tool{
 		job.setOutputKeyClass(LongWritable.class);
 		job.setOutputValueClass(LongWritable.class);
 
-		job.setMapperClass(LargeStarOptMapper.class);
-		job.setCombinerClass(LargeStarOptCombiner.class);
-		job.setReducerClass(LargeStarOptReducer.class);
+		job.setMapperClass(ColorLargeStarMapper.class);
+		job.setCombinerClass(ColorLargeStarCombiner.class);
+		job.setReducerClass(ColorLargeStarReducer.class);
 		job.setInputFormatClass(SequenceFileInputFormat.class);
 		job.setOutputFormatClass(SequenceFileOutputFormat.class);
+
 
 		FileInputFormat.addInputPath(job, input);
 		FileOutputFormat.setOutputPath(job, output);
@@ -122,20 +137,9 @@ public class LargeStarOpt extends Configured implements Tool{
 		return 0;
 	}
 
-	static public class LargeStarOptMapper extends Mapper<LongWritable, LongWritable, LongWritable, LongWritable>{
+	static public class ColorLargeStarMapper extends Mapper<LongWritable, LongWritable, LongWritable, LongWritable>{
 
-	    int numPartitions;
-	    long numChanges = 0;
-
-	    LongWritable ou = new LongWritable();
-	    LongWritable ov = new LongWritable();
-
-        @Override
-        protected void setup(Context context) {
-            numPartitions = context.getConfiguration().getInt("numPartitions", 0);
-        }
-
-        /**
+		/**
 		 * the map function of LargeStarOpt.
 		 * @param u source node
 		 * @param v destination node
@@ -145,63 +149,26 @@ public class LargeStarOpt extends Configured implements Tool{
 		 */
 		@Override
         protected void map(LongWritable u, LongWritable v, Context context) throws IOException, InterruptedException {
-
-            long u_raw = u.get();
-		    long v_raw = v.get();
-
-
-
-		    if(u_raw == v_raw) return;
-
-		    long u_comp = CopyUtil.comp(u_raw);
-            long v_comp = CopyUtil.comp(v_raw);
-
-		    if(v_comp < u_comp){
-                long tmp = u_raw;
-                u_raw = v_raw;
-                v_raw = tmp;
-            }
-
-            long ulow = CopyUtil.low(u_raw);
-            long vlow = CopyUtil.low(v_raw);
-
-            long uid = CopyUtil.nodeId(u_raw);
-            long vid = CopyUtil.nodeId(v_raw);
-
-            if(CopyUtil.isHigh(u_raw) && CopyUtil.nonCopy(u_raw) && (uid != vid)){
-
-		        long ui = CopyUtil.copy(u_raw, v_raw, numPartitions);
-
-		        numChanges++;
-
-		        ou.set(ulow);
-		        ov.set(ui);
-		        context.write(ou, ov);
-
-		        ou.set(vlow);
-		        context.write(ov, ou);
-
-            }
-            else{
-
-		        ou.set(ulow);
-		        ov.set(vlow);
-		        context.write(ou, ov);
-                context.write(ov, ou);
-
-            }
-
+            context.write(u, v);
+            context.write(v, u);
         }
+    }
 
-		@Override
-		protected void cleanup(Context context) throws IOException, InterruptedException {
-			context.getCounter(Counters.NUM_CHANGES).increment(numChanges);
-		}
-	}
+    static public class ColorLargeStarCombiner extends Reducer<LongWritable, LongWritable, LongWritable, LongWritable> {
 
-    static public class LargeStarOptCombiner extends Reducer<LongWritable, LongWritable, LongWritable, LongWritable> {
-
+        private int numPartitions;
+        long[] mcu;
         LongWritable ov = new LongWritable();
+
+		/**
+		 * setup before execution
+		 * @param context of hadoop
+		 */
+		@Override
+        protected void setup(Context context) {
+            numPartitions = context.getConfiguration().getInt("numPartitions", 1);
+            mcu = new long[numPartitions];
+        }
 
 		/**
 		 * the combiner function of LargeStarOpt
@@ -215,38 +182,36 @@ public class LargeStarOpt extends Configured implements Tool{
         protected void reduce(LongWritable _u, Iterable<LongWritable> values, Context context)
                 throws IOException, InterruptedException {
 
-            long u_raw = _u.get();
-            long mu = u_raw;
-            long u_comp = CopyUtil.comp(u_raw);
-            long mu_comp = u_comp;
+            long u = _u.get();
+            Arrays.fill(mcu, Long.MAX_VALUE);
 
             for(LongWritable _v : values){
 
-                long v_raw = _v.get();
-                long v_comp = CopyUtil.comp(v_raw);
+                long v = _v.get();
 
-                if(v_comp < u_comp){
-                    if(mu_comp > v_comp){
-                        mu_comp = v_comp;
-                        mu = v_raw;
-                    }
+                if(v < u){
+                    int vp = (int) (v % numPartitions);
+                    mcu[vp] = Math.min(mcu[vp], v);
                 }
                 else{
                     context.write(_u, _v);
                 }
             }
 
-            if(mu != u_raw){
-            	ov.set(mu);
-            	context.write(_u, ov);
-			}
+            for(long v : mcu){
+                if(v != Long.MAX_VALUE && v != u){
+                    ov.set(v);
+                    context.write(_u, ov);
+                }
+            }
 
         }
     }
 
-	static public class LargeStarOptReducer extends Reducer<LongWritable, LongWritable, LongWritable, LongWritable>{
+	static public class ColorLargeStarReducer extends Reducer<LongWritable, LongWritable, LongWritable, LongWritable>{
 
 		private int numPartitions;
+		long[] mcu;
 		ExternalSorter sorter;
 
 		/**
@@ -257,6 +222,7 @@ public class LargeStarOpt extends Configured implements Tool{
 		protected void setup(Context context){
 
 			numPartitions = context.getConfiguration().getInt("numPartitions", 1);
+			mcu = new long[numPartitions];
 
 			String[] tmpPaths = context.getConfiguration().getTrimmedStrings("yarn.nodemanager.local-dirs");
 			sorter = new ExternalSorter(tmpPaths);
@@ -266,34 +232,23 @@ public class LargeStarOpt extends Configured implements Tool{
 		LongWritable om = new LongWritable();
 		LongWritable ov = new LongWritable();
 
-		class PredicateWithMin implements Predicate<Long> {
-			long mu;
-			long u_comp;
-            long mu_comp;
-			long u_raw;
-			long uNSize = 0;
-			long uid;
+        class PredicateWithMin implements Predicate<Long> {
 
-			PredicateWithMin(long u_raw) {
-				this.u_raw = u_raw;
-				this.mu = u_raw;
-                this.u_comp = CopyUtil.comp(u_raw);
-				this.mu_comp = u_comp;
-                this.uid = CopyUtil.nodeId(u_raw);
-			}
+            long u;
 
-			public boolean test(Long v_raw) {
-			    long v_comp = CopyUtil.comp(v_raw);
-                if(mu_comp > v_comp){
-                    mu_comp = v_comp;
-                    mu = v_raw;
-                }
+            PredicateWithMin(long u) {
+                this.u = u;
+            }
 
-                uNSize++;
+            public boolean test(Long v) {
 
-				return u_comp < v_comp;
-			}
-		}
+                int vp = v.hashCode() % numPartitions;
+
+                mcu[vp] = Math.min(v, mcu[vp]);
+
+                return u < v;
+            }
+        }
 
 		/**
 		 * the reduce function of LargeStarOpt
@@ -307,45 +262,45 @@ public class LargeStarOpt extends Configured implements Tool{
 		protected void reduce(LongWritable key, Iterable<LongWritable> values, Context context)
 				throws IOException, InterruptedException{
 
-			final long u_raw = key.get();
+			long u = key.get();
+			int uPartition = (int) (u % numPartitions);
 			long numChanges = 0;
 
-			PredicateWithMin lfilter = new PredicateWithMin(u_raw);
+			Arrays.fill(mcu, Long.MAX_VALUE);
+
+			mcu[uPartition] = u;
+
+            PredicateWithMin lfilter = new PredicateWithMin(u);
 
 			Iterator<Long> it = StreamSupport.stream(values.spliterator(), false)
 					.map(LongWritable::get).filter(lfilter).iterator();
 
+
 			Iterator<Long> uN_large = sorter.sort(it);
 
-			final long mu = lfilter.mu;
-			final long muid = CopyUtil.nodeId(mu);
-			final long uNSize = lfilter.uNSize;
+            long mu = Arrays.stream(mcu).min().getAsLong();
 
-			long u = (uNSize > numPartitions && CopyUtil.nonCopy(u_raw)) ? CopyUtil.high(u_raw) : u_raw;
-            long uid = CopyUtil.nodeId(u);
+            while(uN_large.hasNext()){
+                long v = uN_large.next();
 
+                int vp = Long.hashCode(v) % numPartitions;
+                long mcu_vp = mcu[vp];
 
+                if(v != mcu_vp){
+                    if(mcu_vp != u) numChanges++;
 
-			if(uid == muid){
-                om.set(u);
-				while(uN_large.hasNext()){
-					long v = uN_large.next();
+                    ov.set(v);
+                    om.set(mcu_vp);
+                    context.write(ov, om);
+                }
+                else{
+                    if(mu != u) numChanges++;
 
-					ov.set(v);
-					context.write(ov, om);
-				}
-			}
-			else{
-                om.set(mu);
-				while(uN_large.hasNext()){
-					long v = uN_large.next();
-
-					ov.set(v);
-					context.write(ov, om);
-					numChanges++;
-
-				}
-			}
+                    ov.set(v);
+                    om.set(mu);
+                    context.write(ov, om);
+                }
+            }
 
 			context.getCounter(Counters.NUM_CHANGES).increment(numChanges);
 
