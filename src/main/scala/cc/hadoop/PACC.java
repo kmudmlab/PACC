@@ -34,10 +34,10 @@
 
 package cc.hadoop;
 
-import cc.hadoop.altopt.Finalization;
-import cc.hadoop.altopt.Initialization;
-import cc.hadoop.altopt.LargeStarOpt;
-import cc.hadoop.altopt.SmallStarOpt;
+import cc.hadoop.paccopt.Finalization;
+import cc.hadoop.paccopt.Initialization;
+import cc.hadoop.paccopt.PALargeStarOpt;
+import cc.hadoop.paccopt.PASmallStarOpt;
 import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.conf.Configured;
 import org.apache.hadoop.fs.FileSystem;
@@ -47,7 +47,7 @@ import org.apache.hadoop.util.ToolRunner;
 import org.apache.log4j.Logger;
 
 
-public class AltOpt extends Configured implements Tool{
+public class PACC extends Configured implements Tool{
 
 	private Logger logger = Logger.getLogger(getClass());
 
@@ -64,7 +64,7 @@ public class AltOpt extends Configured implements Tool{
 	 * @throws Exception by hadoop
 	 */
 	public static void main(String[] args) throws Exception{
-		ToolRunner.run(new AltOpt(), args);
+		ToolRunner.run(new PACC(), args);
 	}
 
 	/**
@@ -75,6 +75,7 @@ public class AltOpt extends Configured implements Tool{
 	 * -D verbose if true, it prints log verbosely (default: false).
 	 * -D mapred.reduce.tasks number of reduce tasks (default: 1).
 	 * -D numPartitions the number of partitions (default: the number of reduce tasks).
+	 * -D localThreshold pacc run an in-memory cc algorithm if the remaining number of edges is below
 	 * this value (default: 1000000).
 	 * @throws Exception by hadoop
 	 */
@@ -86,13 +87,15 @@ public class AltOpt extends Configured implements Tool{
 		Path output = new Path(args[1]);
 		boolean verbose = conf.getBoolean("verbose", false);
 		int numReduceTasks = conf.getInt("mapred.reduce.tasks", 1);
-        int numPartitions = conf.getInt("numPartitions", numReduceTasks);
-        conf.setInt("numPartitions", numPartitions);
+		int numPartitions = conf.getInt("numPartitions", numReduceTasks);
+		long localThreshold = conf.getLong("localThreshold", 1000000);
+		conf.setInt("numPartitions", numPartitions);
 		conf.setLong("mapred.task.timeout", 0L);
 
 		logger.info("Input                : " + input);
 		logger.info("Output               : " + output);
 		logger.info("Number of partitions : " + numPartitions);
+		logger.info("Local threshold      : " + localThreshold);
 
 		FileSystem fs = FileSystem.get(conf);
 		
@@ -102,57 +105,84 @@ public class AltOpt extends Configured implements Tool{
 		long totalTime = time;
 
 
-		Initialization init = new Initialization(input, output.suffix("_0"), verbose);
+
+		Initialization init = new Initialization(input, output.suffix("_0/out"), verbose);
 		
 		ToolRunner.run(conf, init, null);
 
 		logger.info("Round 0 (init) ends :\t" + ((System.currentTimeMillis() - time)/1000.0));
 
-		LargeStarOpt largeStar;
-		SmallStarOpt smallStar;
+		PALargeStarOpt largeStar;
+		PASmallStarOpt smallStar;
 		
+		long numEdges = init.outputSize;
 		long numChanges;
 		boolean converge;
-		int round=0;
+		int i=0;
 		
 		do{
 
-			time = System.currentTimeMillis();
+			if(numEdges > localThreshold){
 
-			largeStar = new LargeStarOpt(output.suffix("_" + round), output.suffix("_large_" + round), verbose);
-			ToolRunner.run(conf, largeStar, null);
-			fs.delete(output.suffix("_" + round), true);
+				time = System.currentTimeMillis();
 
-			smallStar = new SmallStarOpt(output.suffix("_large_" + round), output.suffix("_" + (round + 1)), verbose);
-			ToolRunner.run(conf, smallStar, null);
-			fs.delete(output.suffix("_large_" + round), true);
+				largeStar = new PALargeStarOpt(output.suffix("_" + i + "/out"), output.suffix("_large_" + i), verbose); 
+				ToolRunner.run(conf, largeStar, null);
+				fs.delete(output.suffix("_" + i + "/out"), true);
 
-			logger.info(String.format("Round %d (star) ends :\tlout(%d)\tsout(%d)\tlchange(%d)\tschange(%d)\t%.2fs",
-                    round, largeStar.outSize, smallStar.outSize, largeStar.numChanges, smallStar.numChanges,
-                    ((System.currentTimeMillis() - time) / 1000.0)));
+				smallStar = new PASmallStarOpt(output.suffix("_large_" + i + "/out"), output.suffix("_" + (i + 1)), verbose);
+				ToolRunner.run(conf, smallStar, null);
+				fs.delete(output.suffix("_large_" + i + "/out"), true);
 
-			numChanges = largeStar.numChanges + smallStar.numChanges;
+				logger.info(String.format("Round %d (star) ends :\tlout(%d)\tlcc(%d)\tlin(%d)\tsout(%d)\tsin(%d)\t%.2fs",
+						i, largeStar.outSize, largeStar.ccSize, largeStar.inSize, smallStar.outSize, smallStar.inSize,
+						((System.currentTimeMillis() - time) / 1000.0)));
 
-			converge = (numChanges == 0);
+				numChanges = largeStar.numChanges + smallStar.numChanges;
+				numEdges = smallStar.outSize;
 				
-			round++;
+				converge = (numChanges == 0);
+				
+			}
+			else{
+
+				UnionFindJob lcc = new UnionFindJob(output.suffix("_" + i + "/out"), output.suffix("_" + (i+1) + "/out"));
+				
+				time = System.currentTimeMillis();
+				
+				ToolRunner.run(conf, lcc, null);
+
+				logger.info(String.format("Round %d (local) ends :\tout(%d)\t%.2fs",
+						i, lcc.outputSize, ((System.currentTimeMillis() - time) / 1000.0)));
+
+				fs.delete(output.suffix("_" + i + "/out"), true);
+				
+				numEdges = lcc.outputSize;
+				converge = true;
+			}
+			
+			i++;
 			
 			
-		}while(!converge && fs.exists(output.suffix("_" + round)));
+		}while(!converge && fs.exists(output.suffix("_" + i + "/out")));
 		
 		time = System.currentTimeMillis();
-
-        Finalization fin = new Finalization(output.suffix("_" + round), output, verbose);
-        ToolRunner.run(conf, fin, null);
-
-        fs.delete(output.suffix("_" + round), true);
+		
+		Finalization fin = new Finalization(output, i, verbose);
+		
+		ToolRunner.run(conf, fin, null);
 
 		logger.info(String.format("Round %d (final) ends :\t%.2fs",
-				round, ((System.currentTimeMillis() - time) / 1000.0)));
+				i, ((System.currentTimeMillis() - time) / 1000.0)));
 
-		System.out.print("[AltOpt-end]\t" + input.getName() + "\t" + output.getName() + "\t" + numReduceTasks + "\t" + round + "\t");
+		for(int r = 0; r <= i; r++){
+			fs.delete(output.suffix("_"+r), true);
+			fs.delete(output.suffix("_large_"+r), true);
+		}
+		
+		System.out.print("[PACCOpt-end]\t" + input + "\t" + output + "\t" + numPartitions + "\t" + numReduceTasks + "\t" + localThreshold + "\t" + (i+1) + "\t");
 		System.out.print( ((System.currentTimeMillis() - totalTime)/1000.0) + "\t" );
-		System.out.println("# input output numReduceTasks numRounds time(sec)");
+		System.out.println("# input output numPartitions numReduceTasks localThreshold numRounds time(sec)");
 		
 		
 		return 0;

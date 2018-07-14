@@ -182,8 +182,10 @@ object AltOpt{
         val (_u, uN) = x
 
         var mu = _u
-        var mu_comp = (_u.nodeId << 1) + (if(_u.isCopy) 1 else 0)
+        val u_comp = (_u.nodeId << 1) + (if(_u.isCopy) 1 else 0)
+        var mu_comp = u_comp
         var uNSize = 0l
+
 
         val _uN_large = uN.filter { v =>
 
@@ -195,7 +197,7 @@ object AltOpt{
 
           uNSize += 1
 
-          _u.nodeId < v.nodeId || ((_u.nodeId == v.nodeId) && v.isCopy && _u.nonCopy)
+          u_comp < v_comp
         }
 
         val uN_large = longExternalSorter.sort(_uN_large)
@@ -203,12 +205,12 @@ object AltOpt{
         val u = if(uNSize > numPartitions && _u.nonCopy) _u.high else _u
 
         if(u.nodeId == mu.nodeId){
-          uN_large.map(v => (v.low, u))
+          uN_large.map{v => (v, u)}
         }
         else{
           uN_large.map{v =>
             NUM_CHANGES.add(1)
-            (v.low, mu)
+            (v, mu)
           }
         }
       }
@@ -291,6 +293,8 @@ object AltOpt{
     val sout_size = sout.count()
 
     inputRDD.unpersist(false)
+
+    sout.foreach{case (u, v) => println(u.toTuple + "\t" + v.toTuple)}
 
     (sout, NUM_CHANGES.value, sout_size)
 

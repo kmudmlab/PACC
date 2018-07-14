@@ -6,7 +6,6 @@ import java.util
 import java.util.Random
 
 import cc.io.{DirectReader, DirectWriter}
-import cc.io.{DirectReader, DirectWriter}
 import org.apache.log4j.{Level, Logger}
 
 import scala.collection.mutable
