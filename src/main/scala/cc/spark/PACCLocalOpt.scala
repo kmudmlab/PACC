@@ -233,7 +233,7 @@ object PACCLocalOpt{
         val (u, uN) = x
 
         val mcu = Array.fill[Long](numPartitions)(Long.MaxValue)
-        mcu((u % numPartitions).toInt) = u
+        mcu(u.mod(numPartitions)) = u
 
         var isStar = true
 
@@ -243,7 +243,7 @@ object PACCLocalOpt{
             v_raw
           } else ~v_raw
 
-          val vp = (v % numPartitions).toInt
+          val vp = v.mod(numPartitions)
           mcu(vp) = Math.min(v, mcu(vp))
 
           v > u
@@ -259,7 +259,7 @@ object PACCLocalOpt{
             val vIsLeaf = v_raw < 0
             val v: Long = if(vIsLeaf) ~v_raw else v_raw
 
-            val vp = (v % numPartitions).toInt
+            val vp = v.mod(numPartitions)
             val mcu_vp = mcu(vp)
 
             if(v != mcu_vp) {
@@ -291,12 +291,12 @@ object PACCLocalOpt{
     }
 
     val hconf = new SerializableConfiguration(sc.hadoopConfiguration)
-    val _lout = res_all.filtered(tmpPath, f"large-$round%05d", hconf).persist(StorageLevel.MEMORY_AND_DISK)
-
-    _lout.count()
+    val _lout = res_all.filtered(tmpPath, f"large-$round%05d", hconf)
 
     val lout = _lout.map{ case (u, v) =>
-      (v.encode(u.part(numPartitions)), u)
+      val u_part = u.part(numPartitions)
+      val v_enc = v.encode(u_part)
+      (v_enc, u)
     }.starGrouped()
       .mapPartitions{ it =>
 
@@ -305,6 +305,8 @@ object PACCLocalOpt{
       def processNode(x: (Long, Iterator[Long])): Iterator[(Long, Long)] ={
         val (_u, uN) = x
         val u = _u.nodeId
+
+
 
         var mu = u
 
@@ -376,7 +378,7 @@ object PACCLocalOpt{
         val (u, uN) = x
 
         val mcu = Array.fill[Long](numPartitions)(Long.MaxValue)
-        val up = (u % numPartitions).toInt
+        val up = u.mod(numPartitions)
         mcu(up) = u
 
         var isLeaf = true
@@ -384,7 +386,7 @@ object PACCLocalOpt{
         val _uN_small = uN.filter { v =>
 
           if(v > u) isLeaf = false
-          val vp = (v % numPartitions).toInt
+          val vp = v.mod(numPartitions)
           mcu(vp) = Math.min(v, mcu(vp))
 
           v < u
@@ -396,7 +398,7 @@ object PACCLocalOpt{
 
         val sout = uN_small filter {_ != mu} map { v =>
 
-          val vp = (v % numPartitions).toInt
+          val vp = v.mod(numPartitions)
 
           NUM_CHANGES.add(1)
           SOUT_SIZE.add(1)
