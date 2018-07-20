@@ -1,5 +1,6 @@
 package cc.spark
 
+import java.io.FileNotFoundException
 import java.util.StringTokenizer
 
 import cc.spark.utils.FilteringOps._
@@ -147,16 +148,22 @@ object PACCLocalOpt{
       }
     }while(!converge)
 
+    val fs = FileSystem.get(sc.hadoopConfiguration)
+
     val t2 = System.currentTimeMillis()
 
-    val others = sc.sequenceFile[Long, Long](tmpPath)
+    if(fs.exists(new Path(tmpPath))){
+      val others = sc.sequenceFile[Long, Long](tmpPath)
+      out = out ++ others
+    }
+
 
     // computation step
-    val res = ccComputation(out ++ others, numPartitions)
+    val res = ccComputation(out, numPartitions)
 
     val t3 = System.currentTimeMillis()
 
-    FileSystem.get(sc.hadoopConfiguration).deleteOnExit(new Path(tmpPath))
+    fs.deleteOnExit(new Path(tmpPath))
 
     val itime = (t1-t0)/1000.0
     val rtime = (t2-t1)/1000.0
@@ -284,10 +291,12 @@ object PACCLocalOpt{
     }
 
     val hconf = new SerializableConfiguration(sc.hadoopConfiguration)
-    val _lout = res_all.filtered(tmpPath, f"large-$round%05d", hconf)
+    val _lout = res_all.filtered(tmpPath, f"large-$round%05d", hconf).persist(StorageLevel.MEMORY_AND_DISK)
+
+    _lout.count()
 
     val lout = _lout.map{ case (u, v) =>
-      (v.part(u, numPartitions), u)
+      (v.encode(u.part(numPartitions)), u)
     }.starGrouped()
       .mapPartitions{ it =>
 
@@ -322,7 +331,7 @@ object PACCLocalOpt{
       it.flatMap{processNode}
 
 
-    }.persist(StorageLevel.DISK_ONLY)
+    }.persist(StorageLevel.MEMORY_AND_DISK)
 
     lout.count()
 
@@ -423,7 +432,7 @@ object PACCLocalOpt{
 
     val hconf = new SerializableConfiguration(sc.hadoopConfiguration)
 
-    val sout = res_all.filtered(tmpPath, f"small-$round%05d", hconf).persist(StorageLevel.DISK_ONLY)
+    val sout = res_all.filtered(tmpPath, f"small-$round%05d", hconf).persist(StorageLevel.MEMORY_AND_DISK)
 
     sout.count()
 
