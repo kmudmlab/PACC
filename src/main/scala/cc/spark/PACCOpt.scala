@@ -10,6 +10,7 @@ import org.apache.spark.rdd.RDD
 import org.apache.spark.storage.StorageLevel
 import utils.StarGroupOps._
 import utils.FilteringOps._
+import utils.PartImplicitWrapper._
 
 object PACCOpt{
 
@@ -146,16 +147,22 @@ object PACCOpt{
       }
     }while(!converge)
 
+
+    val fs = FileSystem.get(sc.hadoopConfiguration)
+
     val t2 = System.currentTimeMillis()
 
-    val others = sc.sequenceFile[Long, Long](tmpPath)
+    if(fs.exists(new Path(tmpPath))){
+      val others = sc.sequenceFile[Long, Long](tmpPath)
+      out = out ++ others
+    }
 
     // computation step
-    val res = ccComputation(out ++ others, numPartitions)
+    val res = ccComputation(out, numPartitions)
 
     val t3 = System.currentTimeMillis()
 
-    FileSystem.get(sc.hadoopConfiguration).deleteOnExit(new Path(tmpPath))
+    fs.deleteOnExit(new Path(tmpPath))
 
     val itime = (t1-t0)/1000.0
     val rtime = (t2-t1)/1000.0
@@ -225,7 +232,7 @@ object PACCOpt{
         val (u, uN) = x
 
         val mcu = Array.fill[Long](numPartitions)(Long.MaxValue)
-        mcu((u % numPartitions).toInt) = u
+        mcu(u.mod(numPartitions)) = u
 
         var isStar = true
 
@@ -235,7 +242,7 @@ object PACCOpt{
             v_raw
           } else ~v_raw
 
-          val vp = (v % numPartitions).toInt
+          val vp = v.mod(numPartitions)
           mcu(vp) = Math.min(v, mcu(vp))
 
           v > u
@@ -251,7 +258,7 @@ object PACCOpt{
             val vIsLeaf = v_raw < 0
             val v: Long = if(vIsLeaf) ~v_raw else v_raw
 
-            val vp = (v % numPartitions).toInt
+            val vp = v.mod(numPartitions)
             val mcu_vp = mcu(vp)
 
             if(v != mcu_vp) {
@@ -327,7 +334,7 @@ object PACCOpt{
         val (u, uN) = x
 
         val mcu = Array.fill[Long](numPartitions)(Long.MaxValue)
-        val up = (u % numPartitions).toInt
+        val up = u.mod(numPartitions)
         mcu(up) = u
 
         var isLeaf = true
@@ -335,7 +342,7 @@ object PACCOpt{
         val _uN_small = uN.filter { v =>
 
           if(v > u) isLeaf = false
-          val vp = (v % numPartitions).toInt
+          val vp = v.mod(numPartitions)
           mcu(vp) = Math.min(v, mcu(vp))
 
           v < u
@@ -347,7 +354,7 @@ object PACCOpt{
 
         val sout = uN_small filter {_ != mu} map { v =>
 
-          val vp = (v % numPartitions).toInt
+          val vp = v.mod(numPartitions)
 
           NUM_CHANGES.add(1)
           SOUT_SIZE.add(1)
