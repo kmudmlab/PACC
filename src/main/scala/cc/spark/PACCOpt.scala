@@ -115,6 +115,19 @@ object PACCOpt{
         val (sout, s_change, sout_size, sin_size) = smallStar(lout, numPartitions, round, tmpPath)
         val t02 = System.currentTimeMillis()
 
+        val ltot = lout.count()
+        val lmax = if (ltot > 0) lout.map { case (u, v) => (v, 1l) }.reduceByKey((a, b) => a + b).map(_._2).max() else 0
+        val lnod = lout.map{ case (u, v) => v}.distinct().count()
+        val lavg = if (lnod > 0) ltot.toDouble / lnod else 0
+        val lrat = if(ltot > 0) lmax / lavg else 0
+
+        val stot = sout.count()
+        val smax = if(stot > 0) sout.map{case (u, v) => (v, 1l)}.reduceByKey( (a, b) => a + b).map(_._2).max() else 0
+        val snod = sout.map{case (u, v) => v}.distinct().count()
+        val savg = if(snod > 0) stot.toDouble / snod else 0
+        val srat = if(stot > 0) smax / savg else 0
+
+        println(s"stat - round($round) - $lmax\t$lavg\t$lrat\t$smax\t$savg\t$srat")
 
         val ltime = (t01-t00)/1000.0
         val stime = (t02-t01)/1000.0

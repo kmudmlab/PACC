@@ -13,7 +13,7 @@ class PACCOptSpec extends FlatSpec with Matchers {
 
   Logger.getLogger("org").setLevel(Level.WARN)
   Logger.getLogger("akka").setLevel(Level.WARN)
-  Logger.getLogger("cc.utils.PairExternalSorter").setLevel(Level.WARN)
+  Logger.getLogger("cc.spark.utils.PairExternalSorter").setLevel(Level.WARN)
   Logger.getLogger(PACCOpt .getClass).setLevel(Level.WARN)
 
   val logger = Logger.getLogger(getClass)

@@ -1,26 +1,25 @@
 package cc.spark
 
-import java.io.FileNotFoundException
 import java.util.StringTokenizer
 
 import cc.spark.utils.FilteringOps._
-import cc.spark.utils.{LongExternalSorter, SerializableConfiguration}
+import cc.spark.utils.PartImplicitWrapper._
 import cc.spark.utils.StarGroupOps._
+import cc.spark.utils.{LongExternalSorter, SerializableConfiguration}
 import org.apache.hadoop.fs.{FileSystem, Path}
 import org.apache.log4j.Logger
 import org.apache.spark.rdd.RDD
 import org.apache.spark.storage.StorageLevel
 import org.apache.spark.{HashPartitioner, SparkConf, SparkContext}
-import utils.PartImplicitWrapper._
 
-object PACCLocalOpt{
+object PACCNew{
 
   private val logger = Logger.getLogger(getClass)
 
   case class Config(localThreshold: Int = 100000, numPartitions: Int = 80,
                     inputPath: String = "", outputPath: String = "")
 
-  val APP_NAME: String = "pacc-local-opt"
+  val APP_NAME: String = "pacc-new"
   val VERSION: String = "0.1"
 
   def main(args: Array[String]): Unit = {
@@ -110,31 +109,11 @@ object PACCLocalOpt{
 
         val t00 = System.currentTimeMillis()
 
-        val (lout, _lout, l_change, lout_size, lcc_size, lin_size) = largeStar(out, numPartitions, round, tmpPath)
+        val (lout, l_change, lout_size, lcc_size, lin_size) = largeStar(out, numPartitions, round, tmpPath)
         val t01 = System.currentTimeMillis()
 
         val (sout, s_change, sout_size, sin_size) = smallStar(lout, numPartitions, round, tmpPath)
         val t02 = System.currentTimeMillis()
-
-        val _ltot = _lout.count()
-        val _lmax = if (_ltot > 0) _lout.map { case (u, v) => (v, 1l) }.reduceByKey((a, b) => a + b).map(_._2).max() else 0
-        val _lnod = _lout.map{ case (u, v) => v}.distinct().count()
-        val _lavg = if (_lnod > 0) _ltot.toDouble / _lnod else 0
-        val _lrat = if(_ltot > 0) _lmax / _lavg else 0
-
-        val ltot = lout.count()
-        val lmax = if (ltot > 0) lout.map { case (u, v) => (v, 1l) }.reduceByKey((a, b) => a + b).map(_._2).max() else 0
-        val lnod = lout.map{ case (u, v) => v}.distinct().count()
-        val lavg = if (lnod > 0) ltot.toDouble / lnod else 0
-        val lrat = if(ltot > 0) lmax / lavg else 0
-
-        val stot = sout.count()
-        val smax = if(stot > 0) sout.map{case (u, v) => (v, 1l)}.reduceByKey( (a, b) => a + b).map(_._2).max() else 0
-        val snod = sout.map{case (u, v) => v}.distinct().count()
-        val savg = if(snod > 0) stot.toDouble / snod else 0
-        val srat = if(stot > 0) smax / savg else 0
-
-        println(s"stat - round($round) - ${_lmax}\t${_lavg}\t${_lrat}\t$lmax\t$lavg\t$lrat\t$smax\t$savg\t$srat")
 
         val ltime = (t01-t00)/1000.0
         val stime = (t02-t01)/1000.0
@@ -167,6 +146,7 @@ object PACCLocalOpt{
       }
     }while(!converge)
 
+
     val fs = FileSystem.get(sc.hadoopConfiguration)
 
     val t2 = System.currentTimeMillis()
@@ -175,7 +155,6 @@ object PACCLocalOpt{
       val others = sc.sequenceFile[Long, Long](tmpPath)
       out = out ++ others
     }
-
 
     // computation step
     val res = ccComputation(out, numPartitions)
@@ -227,7 +206,7 @@ object PACCLocalOpt{
     *         # filtered 'cc' edges, # filtered 'in' edges)
     */
   def largeStar(inputRDD: RDD[(Long, Long)], numPartitions: Int,
-                round: Int, tmpPath: String): (RDD[(Long, Long)], RDD[(Long, Long)], Long, Long, Long, Long) = {
+                round: Int, tmpPath: String): (RDD[(Long, Long)], Long, Long, Long, Long) = {
 
     val sc = inputRDD.sparkContext
 
@@ -310,55 +289,12 @@ object PACCLocalOpt{
     }
 
     val hconf = new SerializableConfiguration(sc.hadoopConfiguration)
-    val _lout = res_all.filtered(tmpPath, f"large-$round%05d", hconf)
-
-    val lout = _lout.map{ case (u, v) =>
-      val u_part = u.part(numPartitions)
-      val v_enc = v.encode(u_part)
-      (v_enc, u)
-    }.starGrouped()
-      .mapPartitions{ it =>
-
-      val longExternalSorter = new LongExternalSorter(tmpPaths)
-
-      def processNode(x: (Long, Iterator[Long])): Iterator[(Long, Long)] ={
-        val (_u, uN) = x
-        val u = _u.nodeId
-
-
-
-        var mu = u
-
-        val _uNStream = uN.map { v =>
-
-          if(mu > v) mu = v
-
-          v
-        }
-
-        val uNStream = longExternalSorter.sort(_uNStream)
-
-        uNStream.map{ v =>
-          if(v != mu){
-            (v, mu)
-          }
-          else{
-            (v, u)
-          }
-        }
-
-      }
-
-      it.flatMap{processNode}
-
-
-    }.persist(StorageLevel.MEMORY_AND_DISK)
-
+    val lout = res_all.filtered(tmpPath, f"large-$round%05d", hconf).persist(StorageLevel.DISK_ONLY)
     lout.count()
 
     inputRDD.unpersist(false)
 
-    (lout, _lout, NUM_CHANGES.value, LOUT_SIZE.value, LCC_SIZE.value, LIN_SIZE.value)
+    (lout, NUM_CHANGES.value, LOUT_SIZE.value, LCC_SIZE.value, LIN_SIZE.value)
 
   }
 
@@ -453,7 +389,7 @@ object PACCLocalOpt{
 
     val hconf = new SerializableConfiguration(sc.hadoopConfiguration)
 
-    val sout = res_all.filtered(tmpPath, f"small-$round%05d", hconf).persist(StorageLevel.MEMORY_AND_DISK)
+    val sout = res_all.filtered(tmpPath, f"small-$round%05d", hconf).persist(StorageLevel.DISK_ONLY)
 
     sout.count()
 
