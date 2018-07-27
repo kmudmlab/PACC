@@ -1,38 +1,3 @@
-/*
- * PegasusN: Peta-Scale Graph Mining System (Pegasus v3.0)
- * Authors: Chiwan Park, Ha-Myung Park, U Kang
- *
- * Copyright (c) 2018, Ha-Myung Park, Chiwan Park, and U Kang
- * All rights reserved.
- *
- * Redistribution and use in source and binary forms, with or without
- * modification, are permitted provided that the following conditions are met:
- *     * Redistributions of source code must retain the above copyright
- *       notice, this list of conditions and the following disclaimer.
- *     * Redistributions in binary form must reproduce the above copyright
- *       notice, this list of conditions and the following disclaimer in the
- *       documentation and/or other materials provided with the distribution.
- *     * Neither the name of the Seoul National University nor the
- *       names of its contributors may be used to endorse or promote products
- *       derived from this software without specific prior written permission.
- *
- * THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS" AND
- * ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED
- * WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE
- * DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT HOLDERS BE LIABLE FOR ANY
- * DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES
- * (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES;
- * LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND
- * ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
- * (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS
- * SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
- * -------------------------------------------------------------------------
- * File: LargeStar.java
- * - the optimized largestar operation of pacc.
- * Version: 3.0
- */
-
-
 package cc.hadoop.pacctri;
 
 import cc.hadoop.Counters;
@@ -172,7 +137,7 @@ public class PALargeStarOptStep2 extends Configured implements Tool{
 
                 long v = _v.get();
 
-                if(v < u){
+                if(v >= 0 && v < u){
                     mu = Math.min(mu, v);
                 }
                 else{
@@ -213,18 +178,24 @@ public class PALargeStarOptStep2 extends Configured implements Tool{
 
             long mu;
             long u;
+            boolean is_star = true;
 
-            PredicateWithMin(long u, boolean is_upart) {
+            PredicateWithMin(long u) {
                 this.u = u;
-                this.mu = is_upart ? u : Long.MAX_VALUE;
+                this.mu = u;
             }
 
-            public boolean test(Long _v) {
+            public boolean test(Long v) {
 
-                long v = _v < 0 ? ~_v : _v;
-                mu = Math.min(mu, v);
+                if(v >= 0){
+                    is_star = false;
+                    mu = Math.min(mu, v);
+                    return u < v;
+                }
+                else{
+                	return true;
+				}
 
-                return u < v;
             }
         }
 
@@ -244,10 +215,9 @@ public class PALargeStarOptStep2 extends Configured implements Tool{
 
 			long numChanges = 0;
 			long outSize = 0;
-			long inSize = 0;
-			long interSize = 0;
+			long ccSize = 0;
 
-            PredicateWithMin lfilter = new PredicateWithMin(u, vp == up);
+            PredicateWithMin lfilter = new PredicateWithMin(u);
 
             Iterator<Long> it = StreamSupport.stream(values.spliterator(), false)
                     .map(LongWritable::get).filter(lfilter).iterator();
@@ -255,82 +225,38 @@ public class PALargeStarOptStep2 extends Configured implements Tool{
             Iterator<Long> uN_large = sorter.sort(it);
 
             long mu = lfilter.mu;
+            boolean is_star = lfilter.is_star;
 
             om.set(mu);
 
-            if(u == mu){
-
-                boolean is_non_leaf_emitted = false;
-
+            if(is_star){
+                //Note: if is_star is true, every v is leaf.
+                //Also, mu is u.
+                //cc filtering.
                 while(uN_large.hasNext()){
                     long v = uN_large.next();
-
-                    if (v < 0) {
-                        ov.set(~v);
-                        mout.write(ov, om, "final/part-step1");
-                        inSize++;
-                    }
-                    if (!is_non_leaf_emitted) {
-                        ov.set(v);
-                        mout.write(om, ov, "inter/part-step1");
-                        is_non_leaf_emitted = true;
-                        interSize++;
-                    }
-                    else {
-                        ov.set(v);
-                        mout.write(ov, om, "out/part-step1");
-                        outSize++;
-                    }
-
+                    ov.set(~v);
+                    mout.write(ov, om, "final/part-step2");
+                    ccSize++;
                 }
-
             }
             else{
 
+                boolean change = mu != u;
+
                 while(uN_large.hasNext()){
                     long v = uN_large.next();
-
-
-                    if(mu != v){
-
-                        om.set(mu);
-
-                        if(v < 0){
-                            ov.set(~v);
-                            mout.write(ov, om, "final/part-step1");
-                            inSize++;
-                        }
-                        else {
-                            ov.set(v);
-                            mout.write(ov, om, "out/part-step1");
-                            outSize++;
-                        }
-
-                    }
-                    else{ // v is local minimum (mu) and 0 <= v < u
-                        ov.set(v);
-                        om.set(u);
-                        mout.write(om, ov, "inter/part-step1");
-                    }
-
-
+                    ov.set(v < 0 ? ~v : v);
+                    mout.write(ov, om, "out/part-step2");
+                    outSize++;
+                    if(change) numChanges++;
                 }
-
-                //if mu < u, we send mu to u because mu can be the minimum node among the neighbors of u
-                if(mu < u){
-                    ov.set(mu);
-                    om.set(u);
-                    mout.write(om, ov, "inter/part-step1");
-                }
-                //mu가 u보다 작을 때 처리... inter에 mu를 하나 보내줘야 함 다음 스텝에서 최소값이 될 수도 있기 때문에
-
             }
 
 
 			context.getCounter(Counters.NUM_CHANGES).increment(numChanges);
 			context.getCounter(Counters.OUT_SIZE).increment(outSize);
-            context.getCounter(Counters.IN_SIZE).increment(inSize);
-            context.getCounter(Counters.INTER_SIZE).increment(interSize);
+            context.getCounter(Counters.CC_SIZE).increment(ccSize);
 
 
 		}

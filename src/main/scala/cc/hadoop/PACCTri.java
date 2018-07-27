@@ -34,10 +34,11 @@
 
 package cc.hadoop;
 
-import cc.hadoop.paccopt.Finalization;
 import cc.hadoop.paccopt.Initialization;
-import cc.hadoop.paccopt.PALargeStarOpt;
-import cc.hadoop.paccopt.PASmallStarOpt;
+import cc.hadoop.pacctri.Finalization;
+import cc.hadoop.pacctri.PALargeStarOptStep1;
+import cc.hadoop.pacctri.PALargeStarOptStep2;
+import cc.hadoop.pacctri.PASmallStarOpt;
 import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.conf.Configured;
 import org.apache.hadoop.fs.FileSystem;
@@ -45,6 +46,8 @@ import org.apache.hadoop.fs.Path;
 import org.apache.hadoop.util.Tool;
 import org.apache.hadoop.util.ToolRunner;
 import org.apache.log4j.Logger;
+
+import java.util.ArrayList;
 
 
 public class PACCTri extends Configured implements Tool{
@@ -112,33 +115,50 @@ public class PACCTri extends Configured implements Tool{
 
 		logger.info("Round 0 (init) ends :\t" + ((System.currentTimeMillis() - time)/1000.0));
 
-		PALargeStarOpt largeStar;
+		PALargeStarOptStep1 largeStarStep1;
+		PALargeStarOptStep2 largeStarStep2;
 		PASmallStarOpt smallStar;
 		
 		long numEdges = init.outputSize;
 		long numChanges;
 		boolean converge;
 		int i=0;
-		
+
+        ArrayList<Path> inputFinal = new ArrayList<>();
+
 		do{
 
 			if(numEdges > localThreshold){
 
 				time = System.currentTimeMillis();
 
-				largeStar = new PALargeStarOpt(output.suffix("_" + i + "/out"), output.suffix("_large_" + i), verbose); 
-				ToolRunner.run(conf, largeStar, null);
-				fs.delete(output.suffix("_" + i + "/out"), true);
+				largeStarStep1 = new PALargeStarOptStep1(output.suffix("_"+i+"/out"), output.suffix("_large1_" + i), verbose);
+				ToolRunner.run(conf, largeStarStep1, null);
+                fs.delete(output.suffix("_" + i + "/out"), true);
 
-				smallStar = new PASmallStarOpt(output.suffix("_large_" + i + "/out"), output.suffix("_" + (i + 1)), verbose);
+				largeStarStep2 = new PALargeStarOptStep2(output.suffix("_large1_" + i + "/inter"), output.suffix("_large2_" + i), verbose);
+                ToolRunner.run(conf, largeStarStep2, null);
+                fs.delete(output.suffix("_large1_" + i + "/inter"), true);
+
+                inputFinal.add(output.suffix("_large1_" + i + "/final"));
+                inputFinal.add(output.suffix("_large2_" + i + "/final"));
+
+				smallStar = new PASmallStarOpt(new Path[]{output.suffix("_large1_" + i + "/out"), output.suffix("_large2_" + i + "/out")}, output.suffix("_" + (i + 1)), verbose);
 				ToolRunner.run(conf, smallStar, null);
-				fs.delete(output.suffix("_large_" + i + "/out"), true);
+                fs.delete(output.suffix("_large1_" + i + "/out"), true);
+				fs.delete(output.suffix("_large2_" + i + "/out"), true);
 
-				logger.info(String.format("Round %d (star) ends :\tlout(%d)\tlcc(%d)\tlin(%d)\tsout(%d)\tsin(%d)\t%.2fs",
-						i, largeStar.outSize, largeStar.ccSize, largeStar.inSize, smallStar.outSize, smallStar.inSize,
-						((System.currentTimeMillis() - time) / 1000.0)));
+                inputFinal.add(output.suffix("_" + (i+1) + "/in"));
 
-				numChanges = largeStar.numChanges + smallStar.numChanges;
+				logger.info(String.format("Round %d (star) ends :\tl1in(%d)\tl1inter(%d)\tl1out(%d)\tl2out(%d)\t" +
+                                "l2cc(%d)\tsout(%d)\tsin(%d)\t%.2fs", i, largeStarStep1.inSize,
+                        largeStarStep1.interSize, largeStarStep1.outSize, largeStarStep2.ccSize, largeStarStep2.outSize,
+                        smallStar.outSize, smallStar.inSize, ((System.currentTimeMillis() - time) / 1000.0)));
+
+				logger.info(String.format("l1change(%d), l2change(%d), schange(%d)", largeStarStep1.numChanges,
+                        largeStarStep2.numChanges, smallStar.numChanges));
+
+				numChanges = largeStarStep1.numChanges + largeStarStep2.numChanges + smallStar.numChanges;
 				numEdges = smallStar.outSize;
 				
 				converge = (numChanges == 0);
@@ -165,10 +185,12 @@ public class PACCTri extends Configured implements Tool{
 			
 			
 		}while(!converge && fs.exists(output.suffix("_" + i + "/out")));
-		
+
+        inputFinal.add(output.suffix("_" + i + "/out"));
+
 		time = System.currentTimeMillis();
 		
-		Finalization fin = new Finalization(output, i, verbose);
+		Finalization fin = new Finalization(inputFinal.toArray(new Path[0]), output, verbose);
 		
 		ToolRunner.run(conf, fin, null);
 
@@ -177,10 +199,11 @@ public class PACCTri extends Configured implements Tool{
 
 		for(int r = 0; r <= i; r++){
 			fs.delete(output.suffix("_"+r), true);
-			fs.delete(output.suffix("_large_"+r), true);
+			fs.delete(output.suffix("_large1_"+r), true);
+            fs.delete(output.suffix("_large2_"+r), true);
 		}
 		
-		System.out.print("[PACCOpt-end]\t" + input.getName() + "\t" + output.getName() + "\t" + numPartitions + "\t" + numReduceTasks + "\t" + localThreshold + "\t" + (i+1) + "\t");
+		System.out.print("[PACCTri-end]\t" + input.getName() + "\t" + output.getName() + "\t" + numPartitions + "\t" + numReduceTasks + "\t" + localThreshold + "\t" + (i+1) + "\t");
 		System.out.print( ((System.currentTimeMillis() - totalTime)/1000.0) + "\t" );
 		System.out.println("# input output numPartitions numReduceTasks localThreshold numRounds time(sec)");
 		

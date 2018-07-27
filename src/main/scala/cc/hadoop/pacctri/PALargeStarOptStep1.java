@@ -71,8 +71,8 @@ public class PALargeStarOptStep1 extends Configured implements Tool{
     public long numChanges;
     public long inputSize;
 	public long outSize;
-    public long ccSize;
     public long inSize;
+    public long interSize;
 
 	/**
 	 * constructor
@@ -138,8 +138,8 @@ public class PALargeStarOptStep1 extends Configured implements Tool{
 			this.numChanges = job.getCounters().findCounter(Counters.NUM_CHANGES).getValue();
 			this.inputSize = job.getCounters().findCounter(TaskCounter.MAP_INPUT_RECORDS).getValue();
 			this.outSize = job.getCounters().findCounter(Counters.OUT_SIZE).getValue();
-			this.ccSize = job.getCounters().findCounter(Counters.CC_SIZE).getValue();
 			this.inSize = job.getCounters().findCounter(Counters.IN_SIZE).getValue();
+			this.interSize = job.getCounters().findCounter(Counters.INTER_SIZE).getValue();
 		}
 
 		return 0;
@@ -352,8 +352,10 @@ public class PALargeStarOptStep1 extends Configured implements Tool{
 
                 while(uN_large.hasNext()){
                     long v = uN_large.next();
+                    long v_abs = v < 0 ? ~v : v;
 
-                    if(mu != v){
+
+                    if(mu != v_abs){
 
                         om.set(mu);
 
