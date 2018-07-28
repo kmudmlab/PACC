@@ -92,6 +92,8 @@ object PACCOpt{
       val u = st.nextToken().toLong
       val v = st.nextToken().toLong
       (u, v)
+    }.mapPartitions{ it =>
+      UnionFind.run(it)
     }
 
     var numEdges = out.count()
