@@ -92,13 +92,14 @@ object PACCUnion{
       val u = st.nextToken().toLong
       val v = st.nextToken().toLong
       (u, v)
-    }.repartition(numPartitions).mapPartitions{ it =>
+    }.mapPartitions{ it =>
       UnionFind.run(it)
     }
 
+    out = localization(out, numPartitions)
+
     var numEdges = out.count()
     val t1 = System.currentTimeMillis()
-
 
 
     var converge = false
@@ -194,6 +195,67 @@ object PACCUnion{
     res
   }
 
+
+
+  def localization(inputRDD: RDD[(Long, Long)], numPartitions: Int): RDD[(Long, Long)] ={
+
+
+
+    val sc = inputRDD.sparkContext
+
+    val tmpPaths = sc.hadoopConfiguration.getTrimmedStrings("yarn.nodemanager.local-dirs")
+
+    val mod = inputRDD.getNumPartitions
+
+    inputRDD.map{ case (u, v) =>
+      val u_part = u.part(numPartitions)
+      val v_enc = v.encode(u_part)
+
+      def part(_x: Long): Int = {
+        val x = _x.hashCode()
+        val rawMod = x % mod
+        rawMod + (if (rawMod < 0) mod else 0)
+      }
+
+//      println(part(v_enc), (v_enc, (v, u_part), u))
+
+      (v_enc, u)
+    }.starGrouped()
+      .mapPartitions{ it =>
+
+        val longExternalSorter = new LongExternalSorter(tmpPaths)
+
+        def processNode(x: (Long, Iterator[Long])): Iterator[(Long, Long)] ={
+          val (_u, uN) = x
+          val u = _u.nodeId
+
+          var mu = Long.MaxValue
+
+          val _uNStream = uN.map { v =>
+
+            if(mu > v) mu = v
+
+            v
+          }
+
+          val uNStream = longExternalSorter.sort(_uNStream)
+
+          uNStream.map{ v =>
+            if(v != mu){
+              (v, mu)
+            }
+            else{
+              (v, u)
+            }
+          }
+
+        }
+
+        it.flatMap{processNode}
+
+
+      }.persist(StorageLevel.MEMORY_AND_DISK)
+  }
 
   /**
     * PA-Large-Star Operation.
