@@ -23,6 +23,9 @@ public class LongIteratorFromDirectInput implements Iterator<Long> {
         } catch (IOException e) {
             e.printStackTrace();
             return false;
+        } catch (NullPointerException e){
+            e.printStackTrace();
+            return false;
         }
     }
 

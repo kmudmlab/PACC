@@ -205,21 +205,41 @@ public class ExternalSorter {
             }
         }
 
-        while (in1.hasNext()) {
-            u = in1.next();
-            if (prev != u) {
-                out.write(u);
-                prev = u;
+        try{
+            while(true){
+                u = in1.next();
+                if (prev != u) {
+                    out.write(u);
+                    prev = u;
+                }
             }
-        }
+        } catch (NoSuchElementException e){/*do nothing*/}
 
-        while (in2.hasNext()) {
-            v = in2.next();
-            if (prev != v) {
-                out.write(v);
-                prev = v;
+        try{
+            while(true){
+                u = in2.next();
+                if (prev != u) {
+                    out.write(u);
+                    prev = u;
+                }
             }
-        }
+        } catch (NoSuchElementException e){/*do nothing*/}
+
+//        while (in1.hasNext()) {
+//            u = in1.next();
+//            if (prev != u) {
+//                out.write(u);
+//                prev = u;
+//            }
+//        }
+//
+//        while (in2.hasNext()) {
+//            v = in2.next();
+//            if (prev != v) {
+//                out.write(v);
+//                prev = v;
+//            }
+//        }
 
         out.close();
 
