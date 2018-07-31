@@ -46,6 +46,7 @@ import org.apache.hadoop.io.Text;
 import org.apache.hadoop.mapred.Task.Counter;
 import org.apache.hadoop.mapreduce.Job;
 import org.apache.hadoop.mapreduce.Mapper;
+import org.apache.hadoop.mapreduce.Partitioner;
 import org.apache.hadoop.mapreduce.Reducer;
 import org.apache.hadoop.mapreduce.lib.input.FileInputFormat;
 import org.apache.hadoop.mapreduce.lib.output.FileOutputFormat;
@@ -126,6 +127,8 @@ public class InitByUnionFindWithLocalization extends Configured implements Tool{
 		FileInputFormat.addInputPath(job, input);
 		FileOutputFormat.setOutputPath(job, output);
 
+		job.setPartitionerClass(LocalizationPartitioner.class);
+
 
 		FileSystem.get(conf).delete(output, true);
 		
@@ -135,6 +138,10 @@ public class InitByUnionFindWithLocalization extends Configured implements Tool{
 		
 		return 0;
 	}
+
+	public static int hash(long n_raw){
+	    return Long.hashCode(decode_id(n_raw) + 41 * decode_part(n_raw));
+    }
 
 	public static long code(long n, int p){
 		return (n << 10) | p;
@@ -302,5 +309,15 @@ public class InitByUnionFindWithLocalization extends Configured implements Tool{
         }
 
     }
-	
+
+    private class LocalizationPartitioner extends Partitioner<LongWritable, LongWritable> {
+        @Override
+        public int getPartition(LongWritable key, LongWritable value, int numPartitions) {
+
+            int h = hash(key.get()) % numPartitions;
+            if(h < 0) h = h + numPartitions;
+
+            return h;
+        }
+    }
 }

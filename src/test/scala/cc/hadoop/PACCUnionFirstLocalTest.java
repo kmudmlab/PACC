@@ -30,10 +30,10 @@ public class PACCUnionFirstLocalTest {
 
 
         URL[] paths = {
-//                getClass().getResource("/graphs/small/vline"),
-//                getClass().getResource("/graphs/small/line"),
-//                getClass().getResource("/graphs/small/facebook_686"),
-//                getClass().getResource("/graphs/small/w"),
+                getClass().getResource("/graphs/small/vline"),
+                getClass().getResource("/graphs/small/line"),
+                getClass().getResource("/graphs/small/facebook_686"),
+                getClass().getResource("/graphs/small/w"),
                 getClass().getResource("/graphs/facebook"),
                 getClass().getResource("/graphs/grqc")
         };
