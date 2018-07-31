@@ -150,8 +150,8 @@ public class Initialization extends Configured implements Tool{
 			try{
 				StringTokenizer st = new StringTokenizer(value.toString());
 
-				long u = Long.parseLong(st.nextToken()) << 1;
-                long v = Long.parseLong(st.nextToken()) << 1;
+				long u = CopyUtil.toNode(Long.parseLong(st.nextToken()));
+                long v = CopyUtil.toNode(Long.parseLong(st.nextToken()));
 
 				ou.set(u);
 				ov.set(v);
