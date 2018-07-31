@@ -83,19 +83,21 @@ object PACCUnion{
           localThreshold: Int, sc: SparkContext): RDD[(Long, Long)] = {
 
     val tmpPath = inputPath + ".pacc.tmp"
+    val unionPath = inputPath + ".pacc.uni.tmp"
 
     val t0 = System.currentTimeMillis()
 
     //initialize
-    var out = sc.textFile(inputPath).map{ line =>
+    sc.textFile(inputPath).map{ line =>
       val st = new StringTokenizer(line)
       val u = st.nextToken().toLong
       val v = st.nextToken().toLong
       (u, v)
     }.mapPartitions{ it =>
       UnionFind.run(it)
-    }
+    }.saveAsSequenceFile(unionPath)
 
+    var out = sc.sequenceFile[Long, Long](unionPath)
     out = localization(out, numPartitions)
 
     var numEdges = out.count()
@@ -165,6 +167,7 @@ object PACCUnion{
     val t3 = System.currentTimeMillis()
 
     fs.deleteOnExit(new Path(tmpPath))
+    fs.deleteOnExit(new Path(unionPath))
 
     val itime = (t1-t0)/1000.0
     val rtime = (t2-t1)/1000.0
