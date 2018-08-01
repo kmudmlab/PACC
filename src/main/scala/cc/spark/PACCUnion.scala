@@ -95,7 +95,7 @@ object PACCUnion{
       (u, v)
     }.mapPartitions{ it =>
       UnionFind.spanningForest(it)
-    }
+    }.persist(StorageLevel.DISK_ONLY)
 
 //    localization(out, numPartitions)
 
