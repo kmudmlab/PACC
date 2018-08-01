@@ -70,7 +70,7 @@ public class CopyUtil {
 
     public static int hash(long n) {
 
-        return Long.hashCode(nodeId(n) + 41 * copyId(n));
+        return Long.hashCode(nodeId(n) + 41 * copyId(n) + (isCopy(n) ? 1681 : 0));
 
     }
 

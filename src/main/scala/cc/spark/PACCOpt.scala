@@ -115,20 +115,6 @@ object PACCOpt{
         val (sout, s_change, sout_size, sin_size) = smallStar(lout, numPartitions, round, tmpPath)
         val t02 = System.currentTimeMillis()
 
-        val ltot = lout.count()
-        val lmax = if (ltot > 0) lout.map { case (u, v) => (v, 1l) }.reduceByKey((a, b) => a + b).map(_._2).max() else 0
-        val lnod = lout.map{ case (u, v) => v}.distinct().count()
-        val lavg = if (lnod > 0) ltot.toDouble / lnod else 0
-        val lrat = if(ltot > 0) lmax / lavg else 0
-
-        val stot = sout.count()
-        val smax = if(stot > 0) sout.map{case (u, v) => (v, 1l)}.reduceByKey( (a, b) => a + b).map(_._2).max() else 0
-        val snod = sout.map{case (u, v) => v}.distinct().count()
-        val savg = if(snod > 0) stot.toDouble / snod else 0
-        val srat = if(stot > 0) smax / savg else 0
-
-        println(s"stat - round($round) - $lmax\t$lavg\t$lrat\t$smax\t$savg\t$srat")
-
         val ltime = (t01-t00)/1000.0
         val stime = (t02-t01)/1000.0
         val ttime = (t02-t00)/1000.0
@@ -138,7 +124,7 @@ object PACCOpt{
         logger.info(f"round($round) - lout: $lout_size, lcc: $lcc_size, lin: $lin_size, sout: $sout_size, sin: $sin_size, " +
           f"lchange: $l_change, schange: $s_change")
 
-        println(s"star\t$round\t$lout_size\t$lcc_size\t$lin_size\t$sout_size\t$sin_size\t$l_change\t$s_change\t$ltime\t$stime\t$ttime")
+//        println(s"star\t$round\t$lout_size\t$lcc_size\t$lin_size\t$sout_size\t$sin_size\t$l_change\t$s_change\t$ltime\t$stime\t$ttime")
 
         converge = l_change == 0 && s_change == 0
         numEdges = sout_size
@@ -156,7 +142,7 @@ object PACCOpt{
 
         val ltime = (t01-t00)/1000.0
 
-        println(s"local\t$round\t$ltime")
+//        println(s"local\t$round\t$ltime")
       }
     }while(!converge)
 

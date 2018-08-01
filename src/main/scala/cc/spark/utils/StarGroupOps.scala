@@ -1,6 +1,6 @@
 package cc.spark.utils
 
-import org.apache.spark.HashPartitioner
+import org.apache.spark.{HashPartitioner, Partitioner}
 import org.apache.spark.rdd.RDD
 
 /**
@@ -8,7 +8,7 @@ import org.apache.spark.rdd.RDD
   */
 object StarGroupOps {
   implicit class StarRDDOp(rdd: RDD[(Long, Long)]){
-    def starGrouped(): RDD[(Long, Iterator[Long])] = {
+    def starGrouped(partitioner: Partitioner = new HashPartitioner(rdd.getNumPartitions)): RDD[(Long, Iterator[Long])] = {
 
       val hdconf = rdd.sparkContext.hadoopConfiguration
       val tmpPaths = hdconf.getTrimmedStrings("yarn.nodemanager.local-dirs")

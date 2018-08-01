@@ -122,7 +122,7 @@ object PACC{
         logger.info(f"round($round) - lout: $lout_size, sout: $sout_size, " +
           f"lchange: $l_change, schange: $s_change")
 
-        println(s"star\t$round\t$lout_size\t$sout_size\t$l_change\t$s_change\t$ltime\t$stime\t$ttime")
+//        println(s"star\t$round\t$lout_size\t$sout_size\t$l_change\t$s_change\t$ltime\t$stime\t$ttime")
 
         converge = l_change == 0 && s_change == 0
         numEdges = sout_size
@@ -140,7 +140,7 @@ object PACC{
 
         val ltime = (t01-t00)/1000.0
 
-        println(s"local\t$round\t$ltime")
+//        println(s"local\t$round\t$ltime")
       }
     }while(!converge)
 

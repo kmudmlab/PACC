@@ -94,12 +94,13 @@ object PACCUnion{
       val v = st.nextToken().toLong
       (u, v)
     }.mapPartitions{ it =>
-      UnionFind.run(it)
+      UnionFind.spanningForest(it)
     }
 
-    localization(out, numPartitions)
+//    localization(out, numPartitions)
 
     var numEdges = out.count()
+    println(numEdges)
     val t1 = System.currentTimeMillis()
 
 

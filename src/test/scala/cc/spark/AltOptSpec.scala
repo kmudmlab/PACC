@@ -14,7 +14,7 @@ class AltOptSpec extends FlatSpec with Matchers {
   Logger.getLogger("org").setLevel(Level.ERROR)
   Logger.getLogger("akka").setLevel(Level.ERROR)
   Logger.getLogger("cc.utils.PairExternalSorter").setLevel(Level.ERROR)
-  Logger.getLogger(AltOpt.getClass).setLevel(Level.ERROR)
+//  Logger.getLogger(AltOpt.getClass).setLevel(Level.ERROR)
   Logger.getLogger("cc.spark.utils.PairExternalSorter").setLevel(Level.ERROR)
 
   val logger = Logger.getLogger(getClass)

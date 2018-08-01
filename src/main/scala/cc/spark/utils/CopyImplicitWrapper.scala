@@ -7,14 +7,33 @@ object CopyImplicitWrapper {
   //The next 10 bits are the copyid.
   //Remainder are the nodeid.
 
-  val COPY_MASK = 0x40000000000L
-  val HIGH_MASK = 0x80000000000L
-  val LOW_MASK = ~HIGH_MASK
-  val COPYID_MASK = 0x3FF00000000L
+
+  /**
+    * high bit  node id (8 * 4 bits)  copy bit   copy id (10 bits)
+    * ↓                ↓                 ↓        ↓
+    * - -------------------------------- - ----------
+    * 0 00000000000000000000000000000000 0 0000000000
+    *
+    */
+
+  val HIGH_POSITION = 43
+  val NODEID_POSITION = 11
+  val COPY_POSITION = 10
+  val COPYID_POSITION = 0
+  val COMP_POSITION = 10
+
+  val HIGH_MASK: Long = 1L << HIGH_POSITION
+  val LOW_MASK: Long = ~HIGH_MASK
+  val NODEID_MASK: Long = 0xFFFFFFFFL << NODEID_POSITION
+  val COPY_MASK: Long = 1L << COPY_POSITION
+  val COPYID_MASK: Long = 0x3FFL << COPYID_POSITION
+  val COMP_MASK: Long = NODEID_MASK | COPY_MASK
+
+
 
   implicit class CopyOps(n: Long){
 
-    def copyId: Int = ((n << 2) >>> 54).toInt
+    def copyId: Long = (n & COPYID_MASK) >>> COPYID_POSITION
 
     def isHigh: Boolean = (n & HIGH_MASK) != 0
 
@@ -22,13 +41,21 @@ object CopyImplicitWrapper {
 
     def nonCopy: Boolean = (n & COPY_MASK) == 0
 
-    def nodeId: Long = 0xFFFFFFFFL & n
+    def nodeId: Long = (n & NODEID_MASK) >>> NODEID_POSITION
 
-    def copy(v: Long, p: Int) = COPY_MASK | ((v.nodeId % p) << 32) | n.nodeId
+    def copy(v: Long, p: Int) = COPY_MASK | ((v.nodeId % p) << COPYID_POSITION) | n.nodeId << NODEID_POSITION
 
     def high: Long = n | HIGH_MASK
 
     def low: Long = n & LOW_MASK
+
+    def comp: Long = n & COMP_MASK >>> COMP_POSITION
+
+    def hash: Int ={
+      (n.nodeId + 41 * n.copyId + (if (n.isCopy) 1681 else 0)).hashCode()
+    }
+
+    def toNode: Long = n << NODEID_POSITION
 
     def toTuple: String = n.nodeId + (if(n.isHigh) "h" else "") + (if(n.isCopy) "c" + n.copyId else "" )
   }

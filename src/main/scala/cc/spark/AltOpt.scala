@@ -8,7 +8,7 @@ import org.apache.hadoop.fs.{FileSystem, Path}
 import org.apache.log4j.Logger
 import org.apache.spark.rdd.RDD
 import org.apache.spark.storage.StorageLevel
-import org.apache.spark.{HashPartitioner, SparkConf, SparkContext}
+import org.apache.spark.{HashPartitioner, Partitioner, SparkConf, SparkContext}
 import utils.CopyImplicitWrapper._
 
 object AltOpt{
@@ -78,7 +78,7 @@ object AltOpt{
       val st = new StringTokenizer(line)
       val u = st.nextToken().toLong
       val v = st.nextToken().toLong
-      (u, v)
+      (u.toNode, v.toNode)
     }
 
     var numEdges = out.count()
@@ -108,7 +108,7 @@ object AltOpt{
       logger.info(f"round($round) - lout: $lout_size, sout: $sout_size, " +
         f"lchange: $l_change, schange: $s_change")
 
-      println(s"star\t$round\t$lout_size\t$sout_size\t$l_change\t$s_change\t$ltime\t$stime\t$ttime")
+//      println(s"star\t$round\t$lout_size\t$sout_size\t$l_change\t$s_change\t$ltime\t$stime\t$ttime")
 
       converge = l_change == 0 && s_change == 0
       numEdges = sout_size
@@ -153,7 +153,7 @@ object AltOpt{
     val NUM_CHANGES = sc.longAccumulator
 
     val groupedRDD = inputRDD.map { case (u, v) =>
-      if (u.nodeId < v.nodeId || ((u.nodeId == v.nodeId) && v.isCopy && u.nonCopy)) (u, v)
+      if (u.comp < v.comp) (u, v)
       else (v, u)
     }.filter { case (u, v) => u != v }
       .flatMap { case (u, v) =>
@@ -168,9 +168,18 @@ object AltOpt{
           Seq((u.low, v.low), (v.low, u.low))
         }
       }
-      .starGrouped()
-//      .groupByKey().mapValues(x=> x.iterator)
+      .starGrouped(new Partitioner() {
 
+        val p = inputRDD.getNumPartitions
+
+        override def numPartitions: Int = p
+
+        override def getPartition(key: Any): Int = {
+          val u = key.asInstanceOf[Long]
+          val x = u.hash % p
+          if(x < 0) x + p else x
+        }
+      })
 
     val tmpPaths = sc.hadoopConfiguration.getTrimmedStrings("yarn.nodemanager.local-dirs")
 
@@ -179,33 +188,31 @@ object AltOpt{
       val longExternalSorter = new LongExternalSorter(tmpPaths)
 
       def processNode(x: (Long, Iterator[Long])): Iterator[(Long, Long)] ={
-        val (_u, uN) = x
+        val (u, uN) = x
 
-        var mu = _u
-        val u_comp = (_u.nodeId << 1) + (if(_u.isCopy) 1 else 0)
-        var mu_comp = u_comp
+        var mu = u
+        var mu_comp = u.comp
         var uNSize = 0l
 
 
         val _uN_large = uN.filter { v =>
 
-          val v_comp = (v.nodeId << 1) + (if(v.isCopy) 1 else 0)
-          if(mu_comp > v_comp){
-            mu_comp = v_comp
+          if(mu_comp > v.comp){
+            mu_comp = v.comp
             mu = v
           }
 
           uNSize += 1
 
-          u_comp < v_comp
+          u.comp < v.comp
         }
 
         val uN_large = longExternalSorter.sort(_uN_large)
 
-        val u = if(uNSize > numPartitions && _u.nonCopy) _u.high else _u
+        val ou = if(uNSize > numPartitions && u.nonCopy) u.high else u
 
-        if(u.nodeId == mu.nodeId){
-          uN_large.map{v => (v, u)}
+        if(ou.nodeId == mu.nodeId){
+          uN_large.map{v => (v, ou)}
         }
         else{
           uN_large.map{v =>
@@ -244,7 +251,7 @@ object AltOpt{
     val NUM_CHANGES = sc.longAccumulator
 
     val groupedRDD = inputRDD.map{case (u, v) =>
-      if (u.nodeId < v.nodeId || (u.nodeId == v.nodeId && u.nonCopy && v.isCopy)) {
+      if (u.comp < v.comp) {
         (v, u)
       }else {
         (u, v)
@@ -261,13 +268,12 @@ object AltOpt{
         val (u, uN) = x
 
         var mu = u
-        var mu_comp = (u.nodeId << 1) + (if(u.isCopy) 1 else 0)
+        var mu_comp = u.comp
 
         val _uN_small = uN.map { v =>
 
-          val v_comp = (v.nodeId << 1) + (if(v.isCopy) 1 else 0)
-          if(mu_comp > v_comp){
-            mu_comp = v_comp
+          if(mu_comp > v.comp){
+            mu_comp = v.comp
             mu = v
           }
 
@@ -293,8 +299,6 @@ object AltOpt{
     val sout_size = sout.count()
 
     inputRDD.unpersist(false)
-
-    sout.foreach{case (u, v) => println(u.toTuple + "\t" + v.toTuple)}
 
     (sout, NUM_CHANGES.value, sout_size)
 
