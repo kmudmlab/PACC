@@ -88,17 +88,16 @@ object PACCUnion{
     val t0 = System.currentTimeMillis()
 
     //initialize
-    sc.textFile(inputPath).map{ line =>
+    var out = sc.textFile(inputPath).map{ line =>
       val st = new StringTokenizer(line)
       val u = st.nextToken().toLong
       val v = st.nextToken().toLong
       (u, v)
     }.mapPartitions{ it =>
       UnionFind.run(it)
-    }.saveAsSequenceFile(unionPath)
+    }
 
-    var out = sc.sequenceFile[Long, Long](unionPath)
-    out = localization(out, numPartitions)
+    localization(out, numPartitions)
 
     var numEdges = out.count()
     val t1 = System.currentTimeMillis()
@@ -257,7 +256,7 @@ object PACCUnion{
         it.flatMap{processNode}
 
 
-      }.persist(StorageLevel.MEMORY_AND_DISK)
+      }.persist(StorageLevel.DISK_ONLY)
   }
 
   /**

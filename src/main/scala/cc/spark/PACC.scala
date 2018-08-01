@@ -250,7 +250,7 @@ object PACC{
       it.flatMap{processNode}
 
 
-    }.persist(StorageLevel.MEMORY_AND_DISK)
+    }.persist(StorageLevel.DISK_ONLY)
 
     val lout_size = lout.count()
 
@@ -322,7 +322,7 @@ object PACC{
 
       it.flatMap{processNode}
 
-    }.persist(StorageLevel.MEMORY_AND_DISK)
+    }.persist(StorageLevel.DISK_ONLY)
 
     val sout_size = sout.count()
 

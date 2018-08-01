@@ -352,7 +352,7 @@ object PACCLocalOpt{
       it.flatMap{processNode}
 
 
-    }.persist(StorageLevel.MEMORY_AND_DISK)
+    }.persist(StorageLevel.DISK_ONLY)
 
     lout.count()
 
@@ -453,7 +453,7 @@ object PACCLocalOpt{
 
     val hconf = new SerializableConfiguration(sc.hadoopConfiguration)
 
-    val sout = res_all.filtered(tmpPath, f"small-$round%05d", hconf).persist(StorageLevel.MEMORY_AND_DISK)
+    val sout = res_all.filtered(tmpPath, f"small-$round%05d", hconf).persist(StorageLevel.DISK_ONLY)
 
     sout.count()
 

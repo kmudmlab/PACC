@@ -119,7 +119,7 @@ object AltOpt{
 
     val t2 = System.currentTimeMillis()
 
-    val res = out.map{case (u, v) => (u.nodeId, v.nodeId)}.filter{case (u, v) => u != v}.persist(StorageLevel.MEMORY_AND_DISK)
+    val res = out.map{case (u, v) => (u.nodeId, v.nodeId)}.filter{case (u, v) => u != v}.persist(StorageLevel.DISK_ONLY)
 
     res.count()
 
@@ -218,7 +218,7 @@ object AltOpt{
       it.flatMap{processNode}
 
 
-    }.persist(StorageLevel.MEMORY_AND_DISK)
+    }.persist(StorageLevel.DISK_ONLY)
 
     val lout_size = lout.count()
 
@@ -288,7 +288,7 @@ object AltOpt{
 
       it.flatMap{processNode}
 
-    }.persist(StorageLevel.MEMORY_AND_DISK)
+    }.persist(StorageLevel.DISK_ONLY)
 
     val sout_size = sout.count()
 
