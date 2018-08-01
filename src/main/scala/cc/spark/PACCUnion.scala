@@ -83,7 +83,6 @@ object PACCUnion{
           localThreshold: Int, sc: SparkContext): RDD[(Long, Long)] = {
 
     val tmpPath = inputPath + ".pacc.tmp"
-    val unionPath = inputPath + ".pacc.uni.tmp"
 
     val t0 = System.currentTimeMillis()
 
@@ -94,10 +93,10 @@ object PACCUnion{
       val v = st.nextToken().toLong
       (u, v)
     }.mapPartitions{ it =>
-      UnionFind.spanningForest(it)
-    }.persist(StorageLevel.DISK_ONLY)
+      UnionFind.run(it)
+    }
 
-//    localization(out, numPartitions)
+    out = localization(out, numPartitions)
 
     var numEdges = out.count()
     println(numEdges)
@@ -167,7 +166,6 @@ object PACCUnion{
     val t3 = System.currentTimeMillis()
 
     fs.deleteOnExit(new Path(tmpPath))
-    fs.deleteOnExit(new Path(unionPath))
 
     val itime = (t1-t0)/1000.0
     val rtime = (t2-t1)/1000.0

@@ -310,7 +310,7 @@ public class InitByUnionFindWithLocalization extends Configured implements Tool{
 
     }
 
-    private class LocalizationPartitioner extends Partitioner<LongWritable, LongWritable> {
+    public static class LocalizationPartitioner extends Partitioner<LongWritable, LongWritable> {
         @Override
         public int getPartition(LongWritable key, LongWritable value, int numPartitions) {
 
