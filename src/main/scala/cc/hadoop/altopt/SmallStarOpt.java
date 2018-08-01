@@ -42,10 +42,7 @@ import org.apache.hadoop.conf.Configured;
 import org.apache.hadoop.fs.FileSystem;
 import org.apache.hadoop.fs.Path;
 import org.apache.hadoop.io.LongWritable;
-import org.apache.hadoop.mapreduce.Job;
-import org.apache.hadoop.mapreduce.Mapper;
-import org.apache.hadoop.mapreduce.Reducer;
-import org.apache.hadoop.mapreduce.TaskCounter;
+import org.apache.hadoop.mapreduce.*;
 import org.apache.hadoop.mapreduce.lib.input.FileInputFormat;
 import org.apache.hadoop.mapreduce.lib.input.SequenceFileInputFormat;
 import org.apache.hadoop.mapreduce.lib.output.FileOutputFormat;
@@ -105,7 +102,9 @@ public class SmallStarOpt extends Configured implements Tool{
 		job.setReducerClass(SmallStarReducer.class);
 		job.setInputFormatClass(SequenceFileInputFormat.class);
 		LazyOutputFormat.setOutputFormatClass(job, SequenceFileOutputFormat.class);
-		
+
+		job.setPartitionerClass(SmallStarOptPartitioner.class);
+
 		FileInputFormat.addInputPath(job, input);
 		FileOutputFormat.setOutputPath(job, output);
 		
@@ -233,6 +232,17 @@ public class SmallStarOpt extends Configured implements Tool{
 			context.getCounter(Counters.NUM_CHANGES).increment(numChanges);
 		}
 		
+	}
+
+	static public class SmallStarOptPartitioner extends Partitioner<LongWritable, LongWritable> {
+		@Override
+		public int getPartition(LongWritable u, LongWritable v, int numPartitions) {
+
+			int hash = CopyUtil.hash(u.get()) % numPartitions;
+			if(hash < 0) hash = hash + numPartitions;
+
+			return hash;
+		}
 	}
 	
 }

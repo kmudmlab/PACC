@@ -20,10 +20,7 @@ public class LongIteratorFromDirectInput implements Iterator<Long> {
     public boolean hasNext() {
         try {
             return reader.hasNext();
-        } catch (IOException e) {
-            e.printStackTrace();
-            return false;
-        } catch (NullPointerException e){
+        } catch (IOException | NullPointerException e) {
             e.printStackTrace();
             return false;
         }

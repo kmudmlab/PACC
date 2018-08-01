@@ -10,17 +10,18 @@ public class CopyUtil {
      * 0 0000000000000000000000000000000000000000000000000000 0 0000000000
      */
 
-    private static long HIGH_POSITION = 63;
-    private static long NODEID_POSITION = 11;
-    private static long COPY_POSITION = 10;
-    private static long COPYID_POSITION = 0;
+    private static int HIGH_POSITION = 63;
+    private static int NODEID_POSITION = 11;
+    private static int COPY_POSITION = 10;
+    private static int COPYID_POSITION = 0;
+    private static int COMP_POSITION = 10;
 
     private static long HIGH_MASK = 1L << HIGH_POSITION;
     private static long COPY_MASK = 1L << COPY_POSITION;
     private static long LOW_MASK = ~HIGH_MASK;
     private static long COPYID_MASK = 0x3FFL << COPYID_POSITION;
     private static long NODEID_MASK = 0xFFFFFFFFFFFFFL << NODEID_POSITION;
-    private static long COMP_MASK = NODEID_MASK | COPY_MASK | COPYID_MASK;
+    private static long COMP_MASK = NODEID_MASK | COPY_MASK;
 
     public static long toNode(long n){
         return n << NODEID_POSITION;
@@ -56,7 +57,7 @@ public class CopyUtil {
     }
 
     public static long comp(long n){
-        return n & COMP_MASK;
+        return n & COMP_MASK >>> COMP_POSITION;
     }
 
     public static long copyId(long n){
