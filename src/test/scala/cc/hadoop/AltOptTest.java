@@ -38,7 +38,7 @@ public class AltOptTest {
                 getClass().getResource("/graphs/grqc")
         };
 
-        int[] numPartitionsSet = {1, 2, 4, 8, 16};
+        int[] numPartitionsSet = {/*1, 2, 4, 8,*/ 16};
 
         for(URL path : paths) {
             for (int numPartitions : numPartitionsSet) {

@@ -1,5 +1,7 @@
 package cc.hadoop.altopt;
 
+import cc.hadoop.utils.TabularHash;
+
 public class CopyUtil {
 
 
@@ -27,7 +29,6 @@ public class CopyUtil {
         return n << NODEID_POSITION;
     }
 
-
     public static boolean isHigh(long n) {
         return (n & HIGH_MASK) != 0;
     }
@@ -45,7 +46,8 @@ public class CopyUtil {
     }
 
     public static long copy(long n, long v, long p){
-        return COPY_MASK | ((nodeId(v) % p) << COPYID_POSITION) | (nodeId(n) << NODEID_POSITION);
+        TabularHash H = TabularHash.getInstance();
+        return COPY_MASK | ((H.hash(nodeId(v)) % p) << COPYID_POSITION) | (nodeId(n) << NODEID_POSITION);
     }
 
     public static long high(long n){
@@ -69,9 +71,8 @@ public class CopyUtil {
     }
 
     public static int hash(long n) {
-
-        return Long.hashCode(nodeId(n) + 41 * copyId(n) + (isCopy(n) ? 1681 : 0));
-
+        TabularHash H = TabularHash.getInstance();
+        return H.hash(nodeId(n) + 41 * copyId(n) + (isCopy(n) ? 1681 : 0));
     }
 
 

@@ -36,6 +36,7 @@
 package cc.hadoop.alt;
 
 import cc.hadoop.Counters;
+import cc.hadoop.paccopt.TabularHashPartitioner;
 import cc.hadoop.utils.ExternalSorter;
 import org.apache.hadoop.conf.Configured;
 import org.apache.hadoop.fs.FileSystem;
@@ -104,6 +105,8 @@ public class LargeStar extends Configured implements Tool{
 		job.setReducerClass(LargeStarReducer.class);
 		job.setInputFormatClass(SequenceFileInputFormat.class);
 		job.setOutputFormatClass(SequenceFileOutputFormat.class);
+
+		job.setPartitionerClass(TabularHashPartitioner.class);
 
 		FileInputFormat.addInputPath(job, input);
 		FileOutputFormat.setOutputPath(job, output);
@@ -178,7 +181,6 @@ public class LargeStar extends Configured implements Tool{
 
 	static public class LargeStarReducer extends Reducer<LongWritable, LongWritable, LongWritable, LongWritable>{
 
-		private int numPartitions;
 		ExternalSorter sorter;
 
 		/**
@@ -187,8 +189,6 @@ public class LargeStar extends Configured implements Tool{
 		 */
 		@Override
 		protected void setup(Context context){
-
-			numPartitions = context.getConfiguration().getInt("numPartitions", 1);
 
 			String[] tmpPaths = context.getConfiguration().getTrimmedStrings("yarn.nodemanager.local-dirs");
 			sorter = new ExternalSorter(tmpPaths);

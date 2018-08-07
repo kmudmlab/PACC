@@ -37,6 +37,7 @@ package cc.hadoop.pacc;
 
 import cc.hadoop.Counters;
 import cc.hadoop.utils.ExternalSorter;
+import cc.hadoop.utils.TabularHash;
 import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.conf.Configured;
 import org.apache.hadoop.fs.FileSystem;
@@ -144,7 +145,7 @@ public class PASmallStar extends Configured implements Tool{
 
 		private int numPartitions;
 		private long[] mcu;
-
+		TabularHash H = TabularHash.getInstance();
 		ExternalSorter sorter;
 
 		/**
@@ -174,7 +175,7 @@ public class PASmallStar extends Configured implements Tool{
 
             public boolean test(Long v) {
 
-                int vp = v.hashCode() % numPartitions;
+                int vp = H.hash(v) % numPartitions;
 
                 mcu[vp] = Math.min(v, mcu[vp]);
 
@@ -196,7 +197,7 @@ public class PASmallStar extends Configured implements Tool{
 				throws IOException, InterruptedException{
 
 			long u = key.get();
-			int up = Long.hashCode(u) % numPartitions;
+			int up = H.hash(u) % numPartitions;
 
 			long numChanges = 0;
 
@@ -228,7 +229,7 @@ public class PASmallStar extends Configured implements Tool{
 
 			while(uN_small.hasNext()){
 				long v = uN_small.next();
-				int vp = Long.hashCode(v) % numPartitions;
+				int vp = H.hash(v) % numPartitions;
 				long mcu_vp = mcu[vp];
 
 

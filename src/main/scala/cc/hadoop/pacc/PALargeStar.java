@@ -37,6 +37,7 @@ package cc.hadoop.pacc;
 
 import cc.hadoop.Counters;
 import cc.hadoop.utils.ExternalSorter;
+import cc.hadoop.utils.TabularHash;
 import org.apache.hadoop.conf.Configured;
 import org.apache.hadoop.fs.FileSystem;
 import org.apache.hadoop.fs.Path;
@@ -159,6 +160,7 @@ public class PALargeStar extends Configured implements Tool{
         private int numPartitions;
         long[] mcu;
         LongWritable ov = new LongWritable();
+		TabularHash H = TabularHash.getInstance();
 
 		/**
 		 * setup before execution
@@ -190,7 +192,7 @@ public class PALargeStar extends Configured implements Tool{
                 long v = _v.get();
 
                 if(v < u){
-                    int vp = Long.hashCode(v) % numPartitions;
+                    int vp = H.hash(v) % numPartitions;
                     mcu[vp] = Math.min(mcu[vp], v);
                 }
                 else{
@@ -213,6 +215,7 @@ public class PALargeStar extends Configured implements Tool{
 		private int numPartitions;
 		long[] mcu;
 		ExternalSorter sorter;
+		TabularHash H = TabularHash.getInstance();
 
 		/**
 		 * setup before execution
@@ -242,7 +245,7 @@ public class PALargeStar extends Configured implements Tool{
 
             public boolean test(Long v) {
 
-                int vp = v.hashCode() % numPartitions;
+                int vp = H.hash(v) % numPartitions;
 
                 mcu[vp] = Math.min(v, mcu[vp]);
 
@@ -263,7 +266,7 @@ public class PALargeStar extends Configured implements Tool{
 				throws IOException, InterruptedException{
 
 			long u = key.get();
-			int uPartition = Long.hashCode(u) % numPartitions;
+			int uPartition = H.hash(u) % numPartitions;
 			long numChanges = 0;
 
 			Arrays.fill(mcu, Long.MAX_VALUE);
@@ -283,7 +286,7 @@ public class PALargeStar extends Configured implements Tool{
             while(uN_large.hasNext()){
                 long v = uN_large.next();
 
-                int vp = Long.hashCode(v) % numPartitions;
+                int vp = H.hash(v) % numPartitions;
                 long mcu_vp = mcu[vp];
 
                 if(v != mcu_vp){

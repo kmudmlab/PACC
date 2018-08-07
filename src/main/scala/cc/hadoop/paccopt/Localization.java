@@ -37,6 +37,7 @@ package cc.hadoop.paccopt;
 
 import cc.hadoop.Counters;
 import cc.hadoop.utils.ExternalSorter;
+import cc.hadoop.utils.TabularHash;
 import org.apache.hadoop.conf.Configured;
 import org.apache.hadoop.fs.FileSystem;
 import org.apache.hadoop.fs.Path;
@@ -150,7 +151,8 @@ public class Localization extends Configured implements Tool{
 
 	static public class LocalizationMapper extends Mapper<LongWritable, LongWritable, LongWritable, LongWritable>{
 
-	    int numPartitions;
+		TabularHash H = TabularHash.getInstance();
+		int numPartitions;
 
 	    LongWritable ou = new LongWritable();
 
@@ -169,7 +171,7 @@ public class Localization extends Configured implements Tool{
 		 */
 		@Override
         protected void map(LongWritable u, LongWritable v, Context context) throws IOException, InterruptedException {
-		    int upart = Long.hashCode(u.get()) % numPartitions;
+		    int upart = H.hash(u.get()) % numPartitions;
 		    ou.set(code(v.get(), upart));
             context.write(ou, u);
         }

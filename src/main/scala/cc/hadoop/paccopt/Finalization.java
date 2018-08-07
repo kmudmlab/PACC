@@ -36,6 +36,7 @@ package cc.hadoop.paccopt;
 
 import cc.hadoop.UnionFind;
 import cc.hadoop.utils.LongPairWritable;
+import cc.hadoop.utils.TabularHash;
 import org.apache.hadoop.conf.Configured;
 import org.apache.hadoop.fs.FileSystem;
 import org.apache.hadoop.fs.Path;
@@ -94,7 +95,9 @@ public class Finalization extends Configured implements Tool{
 		job.setMapperClass(LargeStarMapper.class);
 		job.setReducerClass(LargeStarReducer.class);
 		job.setInputFormatClass(SequenceFileInputFormat.class);
-		
+
+        job.setPartitionerClass(TabularHashPartitioner.class);
+
 		FileSystem fs = FileSystem.get(getConf());
 		
 		
@@ -126,6 +129,7 @@ public class Finalization extends Configured implements Tool{
 
 	static public class LargeStarMapper extends Mapper<LongWritable, LongWritable, IntWritable, LongPairWritable>{
 
+		TabularHash H = TabularHash.getInstance();
 		int numPartitions;
 
 		/**
@@ -163,7 +167,7 @@ public class Finalization extends Configured implements Tool{
 			uu = uu < 0 ? -uu - 1: uu;
 			vv = vv < 0 ? -vv - 1: vv;
 			
-			p.set((int) (uu % numPartitions));
+			p.set((H.hash(uu) % numPartitions));
 			edge.set(uu, vv);
 			context.write(p, edge);
 		}

@@ -37,6 +37,7 @@ package cc.hadoop.paccopt;
 
 import cc.hadoop.Counters;
 import cc.hadoop.utils.ExternalSorter;
+import cc.hadoop.utils.TabularHash;
 import org.apache.hadoop.conf.Configured;
 import org.apache.hadoop.fs.FileSystem;
 import org.apache.hadoop.fs.Path;
@@ -119,6 +120,9 @@ public class PALargeStarOpt extends Configured implements Tool{
 		job.setMapperClass(ColorLargeStarMapper.class);
 		job.setCombinerClass(ColorLargeStarCombiner.class);
 		job.setReducerClass(ColorLargeStarReducer.class);
+
+		job.setPartitionerClass(TabularHashPartitioner.class);
+
 		job.setInputFormatClass(SequenceFileInputFormat.class);
 //		job.setOutputFormatClass(SequenceFileOutputFormat.class);
 		LazyOutputFormat.setOutputFormatClass(job, SequenceFileOutputFormat.class);
@@ -163,6 +167,7 @@ public class PALargeStarOpt extends Configured implements Tool{
 
     static public class ColorLargeStarCombiner extends Reducer<LongWritable, LongWritable, LongWritable, LongWritable> {
 
+		TabularHash H = TabularHash.getInstance();
         private int numPartitions;
         long[] mcu;
         LongWritable ov = new LongWritable();
@@ -199,7 +204,7 @@ public class PALargeStarOpt extends Configured implements Tool{
                 long v = _v.get();
 
                 if(v >= 0 && v < u){
-                    int vp = (int) (v % numPartitions);
+                    int vp = H.hash(v) % numPartitions;
                     mcu[vp] = Math.min(mcu[vp], v);
                 }
                 else{
@@ -223,6 +228,7 @@ public class PALargeStarOpt extends Configured implements Tool{
 		long[] mcu;
 		MultipleOutputs<LongWritable, LongWritable> mout;
 		ExternalSorter sorter;
+		TabularHash H = TabularHash.getInstance();
 
 		/**
 		 * setup before execution
@@ -275,7 +281,7 @@ public class PALargeStarOpt extends Configured implements Tool{
 
 		                if(v == v_real) isStar = false;
 
-                        int vp = (int) (v_real % numPartitions);
+                        int vp = H.hash(v_real) % numPartitions;
                         if(v_real < mcu[vp]) mcu[vp] = v_real;
                         if(u < v_real){
                             hd = v;
@@ -313,7 +319,7 @@ public class PALargeStarOpt extends Configured implements Tool{
 				throws IOException, InterruptedException{
 
 			long u = key.get();
-			int uPartition = (int) (u % numPartitions);
+			int uPartition = H.hash(u) % numPartitions;
 			long numChanges = 0;
             boolean isStar = true;
 
@@ -360,7 +366,7 @@ public class PALargeStarOpt extends Configured implements Tool{
 						boolean vIsLeaf = v < 0;
 						v = vIsLeaf ? ~v : v;
 
-						int vPartition = (int) (v % numPartitions);
+						int vPartition = H.hash(v) % numPartitions;
 						long min_local = mcu[vPartition];
 
 						ov.set(v);

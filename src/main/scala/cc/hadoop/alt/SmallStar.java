@@ -36,6 +36,7 @@
 package cc.hadoop.alt;
 
 import cc.hadoop.Counters;
+import cc.hadoop.paccopt.TabularHashPartitioner;
 import cc.hadoop.utils.ExternalSorter;
 import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.conf.Configured;
@@ -105,6 +106,9 @@ public class SmallStar extends Configured implements Tool{
 		
 		job.setMapperClass(Mapper.class);
 		job.setReducerClass(SmallStarReducer.class);
+
+		job.setPartitionerClass(TabularHashPartitioner.class);
+
 		job.setInputFormatClass(SequenceFileInputFormat.class);
 		LazyOutputFormat.setOutputFormatClass(job, SequenceFileOutputFormat.class);
 		

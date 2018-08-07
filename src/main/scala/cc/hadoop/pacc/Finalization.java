@@ -36,6 +36,7 @@ package cc.hadoop.pacc;
 
 import cc.hadoop.UnionFind;
 import cc.hadoop.utils.LongPairWritable;
+import cc.hadoop.utils.TabularHash;
 import org.apache.hadoop.conf.Configured;
 import org.apache.hadoop.fs.FileSystem;
 import org.apache.hadoop.fs.Path;
@@ -109,6 +110,7 @@ public class Finalization extends Configured implements Tool{
 	static public class LargeStarMapper extends Mapper<LongWritable, LongWritable, IntWritable, LongPairWritable>{
 
 		int numPartitions;
+		TabularHash H = TabularHash.getInstance();
 
 		/**
 		 * setup before execution
@@ -140,7 +142,7 @@ public class Finalization extends Configured implements Tool{
 			long u = _u.get();
 			long v = _v.get();
 
-			p.set(Long.hashCode(u) % numPartitions);
+			p.set(H.hash(u) % numPartitions);
 			edge.set(u, v);
 			context.write(p, edge);
 		}

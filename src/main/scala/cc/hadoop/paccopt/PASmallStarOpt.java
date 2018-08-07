@@ -37,6 +37,7 @@ package cc.hadoop.paccopt;
 
 import cc.hadoop.Counters;
 import cc.hadoop.utils.ExternalSorter;
+import cc.hadoop.utils.TabularHash;
 import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.conf.Configured;
 import org.apache.hadoop.fs.FileSystem;
@@ -119,6 +120,9 @@ public class PASmallStarOpt extends Configured implements Tool{
 		job.setMapperClass(PASmallStarMapper.class);
 		job.setReducerClass(PASmallStarReducer.class);
 		job.setCombinerClass(PASmallStarCombiner.class);
+
+        job.setPartitionerClass(TabularHashPartitioner.class);
+
 		job.setInputFormatClass(SequenceFileInputFormat.class);
 		LazyOutputFormat.setOutputFormatClass(job, SequenceFileOutputFormat.class);
 		
@@ -211,6 +215,7 @@ public class PASmallStarOpt extends Configured implements Tool{
 			mout.close();
 		}
 
+		TabularHash H = TabularHash.getInstance();
 		private int numPartitions;
 		private long[] mcu;
 		MultipleOutputs<LongWritable, LongWritable> mout;
@@ -270,7 +275,7 @@ public class PASmallStarOpt extends Configured implements Tool{
 
 						if(v > u) isLeaf = false;
 
-						int vp = (int) (v % numPartitions);
+						int vp = H.hash(v) % numPartitions;
 						if(v < mcu[vp]) mcu[vp] = v;
 						if(v < u){
 							hd = v;
@@ -309,7 +314,7 @@ public class PASmallStarOpt extends Configured implements Tool{
 				throws IOException, InterruptedException{
 
 			long u = key.get();
-			int up = (int) (u % numPartitions);
+			int up = H.hash(u) % numPartitions;
 
 			long numChanges = 0;
 			long outSize = 0;
@@ -350,7 +355,7 @@ public class PASmallStarOpt extends Configured implements Tool{
 
 			while(it.hasNext()){
 				long v = it.next();
-				int vp = (int) (v % numPartitions);
+				int vp = H.hash(v) % numPartitions;
 
 				if(v != mcu[vp]){
 					ok.set(v);

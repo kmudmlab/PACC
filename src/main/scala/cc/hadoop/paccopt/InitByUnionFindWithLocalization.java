@@ -35,6 +35,7 @@
 package cc.hadoop.paccopt;
 
 import cc.hadoop.utils.ExternalSorter;
+import cc.hadoop.utils.TabularHash;
 import it.unimi.dsi.fastutil.longs.Long2LongMap;
 import it.unimi.dsi.fastutil.longs.Long2LongOpenHashMap;
 import org.apache.hadoop.conf.Configuration;
@@ -139,10 +140,6 @@ public class InitByUnionFindWithLocalization extends Configured implements Tool{
 		return 0;
 	}
 
-	public static int hash(long n_raw){
-	    return Long.hashCode(decode_id(n_raw) + 41 * decode_part(n_raw));
-    }
-
 	public static long code(long n, int p){
 		return (n << 10) | p;
 	}
@@ -157,6 +154,7 @@ public class InitByUnionFindWithLocalization extends Configured implements Tool{
 
 	static public class InitializationMapper extends Mapper<Object, Text, LongWritable, LongWritable>{
 
+		TabularHash H = TabularHash.getInstance();
 	    int numPartitions;
 
 		Long2LongOpenHashMap parent;
@@ -223,7 +221,7 @@ public class InitByUnionFindWithLocalization extends Configured implements Tool{
 		        long u = pair.getLongKey();
 		        long v = find(pair.getLongValue());
 
-                int upart = Long.hashCode(u) % numPartitions;
+                int upart = H.hash(u) % numPartitions;
                 ou.set(code(v, upart));
                 ov.set(u);
 
@@ -311,6 +309,13 @@ public class InitByUnionFindWithLocalization extends Configured implements Tool{
     }
 
     public static class LocalizationPartitioner extends Partitioner<LongWritable, LongWritable> {
+
+		TabularHash H = TabularHash.getInstance();
+
+		public int hash(long n_raw){
+			return H.hash(decode_id(n_raw) + 41 * decode_part(n_raw));
+		}
+
         @Override
         public int getPartition(LongWritable key, LongWritable value, int numPartitions) {
 
