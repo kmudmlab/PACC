@@ -1,5 +1,7 @@
-package cc.hadoop;
+package cc.hadoop.old;
 
+import cc.hadoop.UnionFind;
+import cc.hadoop.pacc.old.PACCUnionTri;
 import cc.hadoop.utils.ExternalSorter;
 import cc.hadoop.utils.LongPairWritable;
 import org.apache.hadoop.conf.Configuration;
@@ -18,7 +20,7 @@ import java.util.StringTokenizer;
 
 import static junit.framework.Assert.assertEquals;
 
-public class PACCTest {
+public class PACCUnionTriTest {
 
     @Test
     public void testAll() throws Exception {
@@ -30,17 +32,18 @@ public class PACCTest {
 
 
         URL[] paths = {
-                getClass().getResource("/graphs/small/vline"),
-                getClass().getResource("/graphs/small/line"),
-                getClass().getResource("/graphs/small/facebook_686"),
-                getClass().getResource("/graphs/small/w"),
+//                getClass().getResource("/graphs/small/vline"),
+//                getClass().getResource("/graphs/small/line"),
+//                getClass().getResource("/graphs/small/facebook_686"),
+//                getClass().getResource("/graphs/small/w"),
                 getClass().getResource("/graphs/facebook"),
                 getClass().getResource("/graphs/grqc")
         };
 
-        int[] numPartitionsSet = {1, 2, 4, 8, 16};
+        int[] numPartitionsSet = {/*1, 2, 4, 8,*/ 16};
 
-        int[] localThresholdSet = {0, 100, 10000};
+
+        int[] localThresholdSet = {0/*, 100, 10000*/};
 
         for(URL path : paths){
             for (int numPartitions : numPartitionsSet) {
@@ -53,7 +56,7 @@ public class PACCTest {
                     conf.setInt("numPartitions", numPartitions);
                     conf.setInt("localThreshold", localThreshold);
 
-                    ToolRunner.run(conf, new PACC(), new String[]{inputPath, outputPath});
+                    ToolRunner.run(conf, new PACCUnionTri(), new String[]{inputPath, outputPath});
 
 
 

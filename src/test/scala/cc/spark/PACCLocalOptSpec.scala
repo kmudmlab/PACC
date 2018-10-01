@@ -19,7 +19,7 @@ class PACCLocalOptSpec extends FlatSpec with Matchers {
   val logger = Logger.getLogger(getClass)
   logger.setLevel(Level.INFO)
 
-  "PACCLocalOpt" should "output the same result with UnionFindJob" in {
+  "PACC" should "output the same result with UnionFindJob" in {
 
     val paths = Seq(
       getClass.getResource("/graphs/small/vline"),

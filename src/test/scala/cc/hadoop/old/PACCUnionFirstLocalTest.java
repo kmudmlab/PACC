@@ -1,5 +1,7 @@
-package cc.hadoop;
+package cc.hadoop.old;
 
+import cc.hadoop.UnionFind;
+import cc.hadoop.pacc.old.PACCUnionFirstLocal;
 import cc.hadoop.utils.ExternalSorter;
 import cc.hadoop.utils.LongPairWritable;
 import org.apache.hadoop.conf.Configuration;
@@ -18,7 +20,7 @@ import java.util.StringTokenizer;
 
 import static junit.framework.Assert.assertEquals;
 
-public class PACCTest {
+public class PACCUnionFirstLocalTest {
 
     @Test
     public void testAll() throws Exception {
@@ -38,9 +40,9 @@ public class PACCTest {
                 getClass().getResource("/graphs/grqc")
         };
 
-        int[] numPartitionsSet = {1, 2, 4, 8, 16};
+        int[] numPartitionsSet = {/*1, 2, 4, 8,*/ 16};
 
-        int[] localThresholdSet = {0, 100, 10000};
+        int[] localThresholdSet = {0, /*100, 10000*/};
 
         for(URL path : paths){
             for (int numPartitions : numPartitionsSet) {
@@ -53,7 +55,7 @@ public class PACCTest {
                     conf.setInt("numPartitions", numPartitions);
                     conf.setInt("localThreshold", localThreshold);
 
-                    ToolRunner.run(conf, new PACC(), new String[]{inputPath, outputPath});
+                    ToolRunner.run(conf, new PACCUnionFirstLocal(), new String[]{inputPath, outputPath});
 
 
 

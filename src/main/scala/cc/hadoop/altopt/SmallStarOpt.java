@@ -35,7 +35,7 @@
 
 package cc.hadoop.altopt;
 
-import cc.hadoop.Counters;
+import cc.hadoop.utils.Counters;
 import cc.hadoop.utils.ExternalSorter;
 import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.conf.Configured;

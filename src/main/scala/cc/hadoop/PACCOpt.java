@@ -27,17 +27,17 @@
  * (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS
  * SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  * -------------------------------------------------------------------------
- * File: PACC.java
+ * File: PACCBase.java
  * - pacc. It finds connected components in a graph.
  * Version: 3.0
  */
 
 package cc.hadoop;
 
-import cc.hadoop.paccopt.Finalization;
-import cc.hadoop.paccopt.Initialization;
-import cc.hadoop.paccopt.PALargeStarOpt;
-import cc.hadoop.paccopt.PASmallStarOpt;
+import cc.hadoop.pacc.opt.Finalization;
+import cc.hadoop.pacc.opt.Initialization;
+import cc.hadoop.pacc.opt.PALargeStarOpt;
+import cc.hadoop.pacc.opt.PASmallStarOpt;
 import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.conf.Configured;
 import org.apache.hadoop.fs.FileSystem;

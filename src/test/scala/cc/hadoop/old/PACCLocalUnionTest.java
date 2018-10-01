@@ -1,5 +1,7 @@
-package cc.hadoop;
+package cc.hadoop.old;
 
+import cc.hadoop.UnionFind;
+import cc.hadoop.pacc.old.PACCLocalUnion;
 import cc.hadoop.utils.ExternalSorter;
 import cc.hadoop.utils.LongPairWritable;
 import org.apache.hadoop.conf.Configuration;
@@ -18,7 +20,7 @@ import java.util.StringTokenizer;
 
 import static junit.framework.Assert.assertEquals;
 
-public class PACCTest {
+public class PACCLocalUnionTest {
 
     @Test
     public void testAll() throws Exception {
@@ -53,7 +55,7 @@ public class PACCTest {
                     conf.setInt("numPartitions", numPartitions);
                     conf.setInt("localThreshold", localThreshold);
 
-                    ToolRunner.run(conf, new PACC(), new String[]{inputPath, outputPath});
+                    ToolRunner.run(conf, new PACCLocalUnion(), new String[]{inputPath, outputPath});
 
 
 

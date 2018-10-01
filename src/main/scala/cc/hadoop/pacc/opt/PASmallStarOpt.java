@@ -33,10 +33,11 @@
  */
 
 
-package cc.hadoop.pacctri;
+package cc.hadoop.pacc.opt;
 
 import cc.hadoop.utils.Counters;
 import cc.hadoop.utils.ExternalSorter;
+import cc.hadoop.utils.TabularHash;
 import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.conf.Configured;
 import org.apache.hadoop.fs.FileSystem;
@@ -53,6 +54,7 @@ import org.apache.hadoop.mapreduce.lib.output.LazyOutputFormat;
 import org.apache.hadoop.mapreduce.lib.output.MultipleOutputs;
 import org.apache.hadoop.mapreduce.lib.output.SequenceFileOutputFormat;
 import org.apache.hadoop.util.Tool;
+import org.apache.hadoop.util.ToolRunner;
 
 import java.io.IOException;
 import java.util.Arrays;
@@ -61,7 +63,7 @@ import java.util.NoSuchElementException;
 
 public class PASmallStarOpt extends Configured implements Tool{
 	
-	private final Path[] input;
+	private final Path input;
 	private final Path output;
 	private final String title;
 	private final boolean verbose;
@@ -76,11 +78,24 @@ public class PASmallStarOpt extends Configured implements Tool{
 	 * @param output file path
 	 * @param verbose if true, it prints log verbosely.
 	 */
-	public PASmallStarOpt(Path[] input, Path output, boolean verbose){
+	public PASmallStarOpt(Path input, Path output, boolean verbose){
 		this.input = input;
 		this.output = output;
 		this.verbose = verbose;
-		this.title = String.format("[%s]%s", this.getClass().getSimpleName(), input[0].getName());
+		this.title = String.format("[%s]%s", this.getClass().getSimpleName(), input.getName());
+	}
+
+	/**
+	 * the main entry point
+	 * @param args [0]: input file path, [1]: output file path, and tool runner parameters inherited from pacc
+	 * @throws Exception by hadoop
+	 */
+	public static void main(String[] args) throws Exception{
+		
+		Path input = new Path(args[0]);
+		Path output = new Path(args[1]);
+		
+		ToolRunner.run(new PASmallStarOpt(input, output, true), args);
 	}
 
 	/**
@@ -105,24 +120,21 @@ public class PASmallStarOpt extends Configured implements Tool{
 		job.setMapperClass(PASmallStarMapper.class);
 		job.setReducerClass(PASmallStarReducer.class);
 		job.setCombinerClass(PASmallStarCombiner.class);
+
+        job.setPartitionerClass(TabularHashPartitioner.class);
+
 		job.setInputFormatClass(SequenceFileInputFormat.class);
 		LazyOutputFormat.setOutputFormatClass(job, SequenceFileOutputFormat.class);
-
-		FileSystem fs = FileSystem.get(conf);
-
-		boolean input_exist = false;
-		for(Path x : input){
-			if(fs.exists(x)){
-				input_exist = true;
-				FileInputFormat.addInputPath(job, x);
-			}
-		}
-
+		
+		FileInputFormat.addInputPath(job, input);
 		FileOutputFormat.setOutputPath(job, output);
 		
+		FileSystem fs = FileSystem.get(conf);
+		
+		
 		fs.delete(output, true);
-
-		if(input_exist){
+		
+		if(fs.exists(input)){
 			job.waitForCompletion(verbose);
 			this.numChanges = job.getCounters().findCounter(Counters.NUM_CHANGES).getValue();
 			this.inputSize = job.getCounters().findCounter(TaskCounter.MAP_INPUT_RECORDS).getValue();
@@ -203,6 +215,7 @@ public class PASmallStarOpt extends Configured implements Tool{
 			mout.close();
 		}
 
+		TabularHash H = TabularHash.getInstance();
 		private int numPartitions;
 		private long[] mcu;
 		MultipleOutputs<LongWritable, LongWritable> mout;
@@ -262,7 +275,7 @@ public class PASmallStarOpt extends Configured implements Tool{
 
 						if(v > u) isLeaf = false;
 
-						int vp = (int) (v % numPartitions);
+						int vp = H.hash(v) % numPartitions;
 						if(v < mcu[vp]) mcu[vp] = v;
 						if(v < u){
 							hd = v;
@@ -301,7 +314,7 @@ public class PASmallStarOpt extends Configured implements Tool{
 				throws IOException, InterruptedException{
 
 			long u = key.get();
-			int up = (int) (u % numPartitions);
+			int up = H.hash(u) % numPartitions;
 
 			long numChanges = 0;
 			long outSize = 0;
@@ -342,7 +355,7 @@ public class PASmallStarOpt extends Configured implements Tool{
 
 			while(it.hasNext()){
 				long v = it.next();
-				int vp = (int) (v % numPartitions);
+				int vp = H.hash(v) % numPartitions;
 
 				if(v != mcu[vp]){
 					ok.set(v);

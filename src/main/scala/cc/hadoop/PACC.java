@@ -1,43 +1,16 @@
 /*
- * PegasusN: Peta-Scale Graph Mining System (Pegasus v3.0)
- * Authors: Chiwan Park, Ha-Myung Park, U Kang
+ * PACCBase: Partition-Aware Connected Components
+ * Authors: Ha-Myung Park, Namyong Park, Sung-Hyun Myaeng, and U Kang
  *
- * Copyright (c) 2018, Ha-Myung Park, Chiwan Park, and U Kang
- * All rights reserved.
- *
- * Redistribution and use in source and binary forms, with or without
- * modification, are permitted provided that the following conditions are met:
- *     * Redistributions of source code must retain the above copyright
- *       notice, this list of conditions and the following disclaimer.
- *     * Redistributions in binary form must reproduce the above copyright
- *       notice, this list of conditions and the following disclaimer in the
- *       documentation and/or other materials provided with the distribution.
- *     * Neither the name of the Seoul National University nor the
- *       names of its contributors may be used to endorse or promote products
- *       derived from this software without specific prior written permission.
- *
- * THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS" AND
- * ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED
- * WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE
- * DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT HOLDERS BE LIABLE FOR ANY
- * DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES
- * (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES;
- * LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND
- * ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
- * (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS
- * SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  * -------------------------------------------------------------------------
- * File: PACC.java
+ * File: PACCBase.java
  * - pacc. It finds connected components in a graph.
  * Version: 3.0
  */
 
 package cc.hadoop;
 
-import cc.hadoop.pacc.Finalization;
-import cc.hadoop.pacc.Initialization;
-import cc.hadoop.pacc.PALargeStar;
-import cc.hadoop.pacc.PASmallStar;
+import cc.hadoop.pacc.opt.*;
 import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.conf.Configured;
 import org.apache.hadoop.fs.FileSystem;
@@ -88,12 +61,14 @@ public class PACC extends Configured implements Tool{
 		boolean verbose = conf.getBoolean("verbose", false);
 		int numReduceTasks = conf.getInt("mapred.reduce.tasks", 1);
 		int numPartitions = conf.getInt("numPartitions", numReduceTasks);
+		long localThreshold = conf.getLong("localThreshold", 1000000);
 		conf.setInt("numPartitions", numPartitions);
 		conf.setLong("mapred.task.timeout", 0L);
 
 		logger.info("Input                : " + input);
 		logger.info("Output               : " + output);
 		logger.info("Number of partitions : " + numPartitions);
+		logger.info("Local threshold      : " + localThreshold);
 
 		FileSystem fs = FileSystem.get(conf);
 		
@@ -104,60 +79,88 @@ public class PACC extends Configured implements Tool{
 
 
 
-		Initialization init = new Initialization(input, output.suffix("_0"), verbose);
+		Initialization init = new Initialization(input, output.suffix("_0/out"), verbose);
 		
 		ToolRunner.run(conf, init, null);
 
 		logger.info("Round 0 (init) ends :\t" + ((System.currentTimeMillis() - time)/1000.0));
 
-		PALargeStar largeStar;
-		PASmallStar smallStar;
+		PALargeStarOpt largeStar;
+		Localization localization;
+		PASmallStarOpt smallStar;
 		
+		long numEdges = init.outputSize;
 		long numChanges;
 		boolean converge;
-		int round=0;
-		
+		int i=0;
+
 		do{
 
-			time = System.currentTimeMillis();
+			if(numEdges > localThreshold){
 
-			largeStar = new PALargeStar(output.suffix("_" + round), output.suffix("_large_" + round), verbose);
-			ToolRunner.run(conf, largeStar, null);
-			fs.delete(output.suffix("_" + round), true);
+				time = System.currentTimeMillis();
 
-			smallStar = new PASmallStar(output.suffix("_large_" + round), output.suffix("_" + (round + 1)), verbose);
-			ToolRunner.run(conf, smallStar, null);
-			fs.delete(output.suffix("_large_" + round), true);
+				largeStar = new PALargeStarOpt(output.suffix("_" + i + "/out"), output.suffix("_large_" + i), verbose); 
+				ToolRunner.run(conf, largeStar, null);
+				fs.delete(output.suffix("_" + i + "/out"), true);
 
-			logger.info(String.format("Round %d (star) ends :\tlout(%d)\tsout(%d)\tlchange(%d)\tschange(%d)\t%.2fs",
-					round, largeStar.outSize, smallStar.outSize, largeStar.numChanges, smallStar.numChanges,
-					((System.currentTimeMillis() - time) / 1000.0)));
+                localization = new Localization(output.suffix("_large_" + i + "/out"), output.suffix("_local_" + i), verbose);
+                ToolRunner.run(conf, localization, null);
+                fs.delete(output.suffix("_large_" + i + "/out"), true);
 
-			numChanges = largeStar.numChanges + smallStar.numChanges;
+				smallStar = new PASmallStarOpt(output.suffix("_local_" + i), output.suffix("_" + (i + 1)), verbose);
+				ToolRunner.run(conf, smallStar, null);
+				fs.delete(output.suffix("_local_" + i), true);
 
-			converge = (numChanges == 0);
+				logger.info(String.format("Round %d (star) ends :\tlout(%d)\tlcc(%d)\tlin(%d)\tsout(%d)\tsin(%d)\t%.2fs",
+						i, largeStar.outSize, largeStar.ccSize, largeStar.inSize, smallStar.outSize, smallStar.inSize,
+						((System.currentTimeMillis() - time) / 1000.0)));
 
-			round++;
+				numChanges = largeStar.numChanges + smallStar.numChanges;
+				numEdges = smallStar.outSize;
+				
+				converge = (numChanges == 0);
+				
+			}
+			else{
 
-		}while(!converge && fs.exists(output.suffix("_" + round)));
+				UnionFindJob lcc = new UnionFindJob(output.suffix("_" + i + "/out"), output.suffix("_" + (i+1) + "/out"));
+				
+				time = System.currentTimeMillis();
+				
+				ToolRunner.run(conf, lcc, null);
+
+				logger.info(String.format("Round %d (local) ends :\tout(%d)\t%.2fs",
+						i, lcc.outputSize, ((System.currentTimeMillis() - time) / 1000.0)));
+
+				fs.delete(output.suffix("_" + i + "/out"), true);
+				
+				numEdges = lcc.outputSize;
+				converge = true;
+			}
+			
+			i++;
+			
+			
+		}while(!converge && fs.exists(output.suffix("_" + i + "/out")));
 		
 		time = System.currentTimeMillis();
 		
-		Finalization fin = new Finalization(output.suffix("_" + round), output, verbose);
+		Finalization fin = new Finalization(output, i, verbose);
 		
 		ToolRunner.run(conf, fin, null);
 
 		logger.info(String.format("Round %d (final) ends :\t%.2fs",
-				round, ((System.currentTimeMillis() - time) / 1000.0)));
+				i, ((System.currentTimeMillis() - time) / 1000.0)));
 
-		for(int r = 0; r <= round; r++){
+		for(int r = 0; r <= i; r++){
 			fs.delete(output.suffix("_"+r), true);
 			fs.delete(output.suffix("_large_"+r), true);
 		}
 		
-		System.out.print("[PACC-end]\t" + input.getName() + "\t" + output.getName() + "\t" + numPartitions + "\t" + numReduceTasks + "\t" + (round+1) + "\t");
+		System.out.print("[PACC-end]\t" + input.getName() + "\t" + output.getName() + "\t" + numPartitions + "\t" + numReduceTasks + "\t" + localThreshold + "\t" + (i+1) + "\t");
 		System.out.print( ((System.currentTimeMillis() - totalTime)/1000.0) + "\t" );
-		System.out.println("# input output numPartitions numReduceTasks numRounds time(sec)");
+		System.out.println("# input output numPartitions numReduceTasks localThreshold numRounds time(sec)");
 		
 		
 		return 0;

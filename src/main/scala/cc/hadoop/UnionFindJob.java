@@ -53,7 +53,7 @@ public class UnionFindJob extends Configured implements Tool {
 
 	private final Path input;
 	private final Path output;
-	long outputSize = 0;
+	public long outputSize = 0;
 
 
 	/**
@@ -61,7 +61,7 @@ public class UnionFindJob extends Configured implements Tool {
 	 * @param input file path
 	 * @param output file path
 	 */
-	UnionFindJob(Path input, Path output) {
+	public UnionFindJob(Path input, Path output) {
 		this.input = input;
 		this.output = output;
 		this.parent  = new Long2LongOpenHashMap();

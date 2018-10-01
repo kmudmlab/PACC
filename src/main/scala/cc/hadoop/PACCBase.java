@@ -34,10 +34,10 @@
 
 package cc.hadoop;
 
-import cc.hadoop.alt.Finalization;
-import cc.hadoop.alt.Initialization;
-import cc.hadoop.alt.LargeStar;
-import cc.hadoop.alt.SmallStar;
+import cc.hadoop.pacc.base.Finalization;
+import cc.hadoop.pacc.base.Initialization;
+import cc.hadoop.pacc.base.PALargeStar;
+import cc.hadoop.pacc.base.PASmallStar;
 import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.conf.Configured;
 import org.apache.hadoop.fs.FileSystem;
@@ -47,7 +47,7 @@ import org.apache.hadoop.util.ToolRunner;
 import org.apache.log4j.Logger;
 
 
-public class Alt extends Configured implements Tool{
+public class PACCBase extends Configured implements Tool{
 
 	private Logger logger = Logger.getLogger(getClass());
 
@@ -64,7 +64,7 @@ public class Alt extends Configured implements Tool{
 	 * @throws Exception by hadoop
 	 */
 	public static void main(String[] args) throws Exception{
-		ToolRunner.run(new Alt(), args);
+		ToolRunner.run(new PACCBase(), args);
 	}
 
 	/**
@@ -87,10 +87,13 @@ public class Alt extends Configured implements Tool{
 		Path output = new Path(args[1]);
 		boolean verbose = conf.getBoolean("verbose", false);
 		int numReduceTasks = conf.getInt("mapred.reduce.tasks", 1);
+		int numPartitions = conf.getInt("numPartitions", numReduceTasks);
+		conf.setInt("numPartitions", numPartitions);
 		conf.setLong("mapred.task.timeout", 0L);
 
 		logger.info("Input                : " + input);
 		logger.info("Output               : " + output);
+		logger.info("Number of partitions : " + numPartitions);
 
 		FileSystem fs = FileSystem.get(conf);
 		
@@ -107,8 +110,8 @@ public class Alt extends Configured implements Tool{
 
 		logger.info("Round 0 (init) ends :\t" + ((System.currentTimeMillis() - time)/1000.0));
 
-		LargeStar largeStar;
-		SmallStar smallStar;
+		PALargeStar largeStar;
+		PASmallStar smallStar;
 		
 		long numChanges;
 		boolean converge;
@@ -118,40 +121,43 @@ public class Alt extends Configured implements Tool{
 
 			time = System.currentTimeMillis();
 
-			largeStar = new LargeStar(output.suffix("_" + round), output.suffix("_large_" + round), verbose);
+			largeStar = new PALargeStar(output.suffix("_" + round), output.suffix("_large_" + round), verbose);
 			ToolRunner.run(conf, largeStar, null);
 			fs.delete(output.suffix("_" + round), true);
 
-			smallStar = new SmallStar(output.suffix("_large_" + round), output.suffix("_" + (round + 1)), verbose);
+			smallStar = new PASmallStar(output.suffix("_large_" + round), output.suffix("_" + (round + 1)), verbose);
 			ToolRunner.run(conf, smallStar, null);
 			fs.delete(output.suffix("_large_" + round), true);
 
 			logger.info(String.format("Round %d (star) ends :\tlout(%d)\tsout(%d)\tlchange(%d)\tschange(%d)\t%.2fs",
-                    round, largeStar.outSize, smallStar.outSize, largeStar.numChanges, smallStar.numChanges,
-                    ((System.currentTimeMillis() - time) / 1000.0)));
+					round, largeStar.outSize, smallStar.outSize, largeStar.numChanges, smallStar.numChanges,
+					((System.currentTimeMillis() - time) / 1000.0)));
 
 			numChanges = largeStar.numChanges + smallStar.numChanges;
 
 			converge = (numChanges == 0);
-				
+
 			round++;
-			
-			
+
 		}while(!converge && fs.exists(output.suffix("_" + round)));
 		
 		time = System.currentTimeMillis();
-
-        Finalization fin = new Finalization(output.suffix("_" + round), output, verbose);
-        ToolRunner.run(conf, fin, null);
-
-        fs.delete(output.suffix("_" + round), true);
+		
+		Finalization fin = new Finalization(output.suffix("_" + round), output, verbose);
+		
+		ToolRunner.run(conf, fin, null);
 
 		logger.info(String.format("Round %d (final) ends :\t%.2fs",
 				round, ((System.currentTimeMillis() - time) / 1000.0)));
 
-		System.out.print("[Alt-end]\t" + input.getName() + "\t" + output.getName() + "\t" + numReduceTasks + "\t" + round + "\t");
+		for(int r = 0; r <= round; r++){
+			fs.delete(output.suffix("_"+r), true);
+			fs.delete(output.suffix("_large_"+r), true);
+		}
+		
+		System.out.print("[PACCBase-end]\t" + input.getName() + "\t" + output.getName() + "\t" + numPartitions + "\t" + numReduceTasks + "\t" + (round+1) + "\t");
 		System.out.print( ((System.currentTimeMillis() - totalTime)/1000.0) + "\t" );
-		System.out.println("# input output numReduceTasks numRounds time(sec)");
+		System.out.println("# input output numPartitions numReduceTasks numRounds time(sec)");
 		
 		
 		return 0;

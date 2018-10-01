@@ -33,10 +33,11 @@
  */
 
 
-package cc.hadoop.pacctri;
+package cc.hadoop.pacc.opt;
 
 import cc.hadoop.utils.Counters;
 import cc.hadoop.utils.ExternalSorter;
+import cc.hadoop.utils.TabularHash;
 import org.apache.hadoop.conf.Configured;
 import org.apache.hadoop.fs.FileSystem;
 import org.apache.hadoop.fs.Path;
@@ -55,12 +56,12 @@ import org.apache.hadoop.util.Tool;
 import org.apache.hadoop.util.ToolRunner;
 
 import java.io.IOException;
+import java.util.Arrays;
 import java.util.Iterator;
-import java.util.function.Predicate;
-import java.util.stream.StreamSupport;
+import java.util.NoSuchElementException;
 
 
-public class PALargeStarOptStep1 extends Configured implements Tool{
+public class PALargeStarOpt extends Configured implements Tool{
 
 	private final Path input;
 	private final Path output;
@@ -69,8 +70,8 @@ public class PALargeStarOptStep1 extends Configured implements Tool{
     public long numChanges;
     public long inputSize;
 	public long outSize;
+    public long ccSize;
     public long inSize;
-    public long interSize;
 
 	/**
 	 * constructor
@@ -78,7 +79,7 @@ public class PALargeStarOptStep1 extends Configured implements Tool{
 	 * @param output file path
 	 * @param verbose if true, it prints log verbosely.
 	 */
-	public PALargeStarOptStep1(Path input, Path output, boolean verbose){
+	public PALargeStarOpt(Path input, Path output, boolean verbose){
 		this.input = input;
 		this.output = output;
 		this.verbose = verbose;
@@ -95,7 +96,7 @@ public class PALargeStarOptStep1 extends Configured implements Tool{
 		Path input = new Path(args[0]);
 		Path output = new Path(args[1]);
 
-		ToolRunner.run(new PALargeStarOptStep1(input, output, true), args);
+		ToolRunner.run(new PALargeStarOpt(input, output, true), args);
 	}
 
 	/**
@@ -119,7 +120,11 @@ public class PALargeStarOptStep1 extends Configured implements Tool{
 		job.setMapperClass(ColorLargeStarMapper.class);
 		job.setCombinerClass(ColorLargeStarCombiner.class);
 		job.setReducerClass(ColorLargeStarReducer.class);
+
+		job.setPartitionerClass(TabularHashPartitioner.class);
+
 		job.setInputFormatClass(SequenceFileInputFormat.class);
+//		job.setOutputFormatClass(SequenceFileOutputFormat.class);
 		LazyOutputFormat.setOutputFormatClass(job, SequenceFileOutputFormat.class);
 
 
@@ -136,39 +141,14 @@ public class PALargeStarOptStep1 extends Configured implements Tool{
 			this.numChanges = job.getCounters().findCounter(Counters.NUM_CHANGES).getValue();
 			this.inputSize = job.getCounters().findCounter(TaskCounter.MAP_INPUT_RECORDS).getValue();
 			this.outSize = job.getCounters().findCounter(Counters.OUT_SIZE).getValue();
+			this.ccSize = job.getCounters().findCounter(Counters.CC_SIZE).getValue();
 			this.inSize = job.getCounters().findCounter(Counters.IN_SIZE).getValue();
-			this.interSize = job.getCounters().findCounter(Counters.INTER_SIZE).getValue();
 		}
 
 		return 0;
 	}
 
-    public static long code(long n, int p){
-        return (n << 10) | p;
-    }
-    public static int part(long n, int p){
-        return Long.hashCode(n) % p;
-    }
-
-    public static long decode_id(long n_raw){
-        return n_raw >>> 10;
-    }
-
-    public static int decode_part(long n_raw){
-        return (int) (n_raw & 0x3FF);
-    }
-
 	static public class ColorLargeStarMapper extends Mapper<LongWritable, LongWritable, LongWritable, LongWritable>{
-
-		int numPartitions;
-
-		LongWritable ou = new LongWritable();
-        LongWritable ov = new LongWritable();
-
-		@Override
-		protected void setup(Context context) {
-			numPartitions = context.getConfiguration().getInt("numPartitions", 0);
-		}
 
 		/**
 		 * the map function of LargeStarOpt.
@@ -180,23 +160,29 @@ public class PALargeStarOptStep1 extends Configured implements Tool{
 		 */
 		@Override
         protected void map(LongWritable u, LongWritable v, Context context) throws IOException, InterruptedException {
-
-            if (u.get() >= 0){
-                ou.set(code(u.get(), part(v.get(), numPartitions)));
-                ov.set(code(v.get(), part(u.get(), numPartitions)));
-                context.write(ou, v);
-                context.write(ov, u);
-            }
-            else{
-                ov.set(code(v.get(), part(~u.get(), numPartitions)));
-                context.write(ov, u);
-            }
+            if (u.get() >= 0) context.write(u, v);
+            context.write(v, u);
         }
     }
 
     static public class ColorLargeStarCombiner extends Reducer<LongWritable, LongWritable, LongWritable, LongWritable> {
 
+		TabularHash H = TabularHash.getInstance();
+        private int numPartitions;
+        long[] mcu;
         LongWritable ov = new LongWritable();
+
+		/**
+		 * setup before execution
+		 * @param context of hadoop
+		 * @throws IOException by hadoop
+		 * @throws InterruptedException by hadoop
+		 */
+		@Override
+        protected void setup(Context context) throws IOException, InterruptedException {
+            numPartitions = context.getConfiguration().getInt("numPartitions", 1);
+            mcu = new long[numPartitions];
+        }
 
 		/**
 		 * the combiner function of LargeStarOpt
@@ -210,25 +196,27 @@ public class PALargeStarOptStep1 extends Configured implements Tool{
         protected void reduce(LongWritable _u, Iterable<LongWritable> values, Context context)
                 throws IOException, InterruptedException {
 
-            long u = decode_id(_u.get());
-
-            long mu = Long.MAX_VALUE;
+            long u = _u.get();
+            Arrays.fill(mcu, Long.MAX_VALUE);
 
             for(LongWritable _v : values){
 
                 long v = _v.get();
 
                 if(v >= 0 && v < u){
-                    mu = Math.min(mu, v);
+                    int vp = H.hash(v) % numPartitions;
+                    mcu[vp] = Math.min(mcu[vp], v);
                 }
                 else{
                     context.write(_u, _v);
                 }
             }
 
-            if(mu != Long.MAX_VALUE){
-                ov.set(mu);
-                context.write(_u, ov);
+            for(long v : mcu){
+                if(v != Long.MAX_VALUE){
+                    ov.set(v);
+                    context.write(_u, ov);
+                }
             }
 
         }
@@ -236,10 +224,11 @@ public class PALargeStarOptStep1 extends Configured implements Tool{
 
 	static public class ColorLargeStarReducer extends Reducer<LongWritable, LongWritable, LongWritable, LongWritable>{
 
+		private int numPartitions;
+		long[] mcu;
 		MultipleOutputs<LongWritable, LongWritable> mout;
 		ExternalSorter sorter;
-
-		int numPartitions;
+		TabularHash H = TabularHash.getInstance();
 
 		/**
 		 * setup before execution
@@ -247,38 +236,73 @@ public class PALargeStarOptStep1 extends Configured implements Tool{
 		 */
 		@Override
 		protected void setup(Context context){
-            numPartitions = context.getConfiguration().getInt("numPartitions", 0);
+
+			numPartitions = context.getConfiguration().getInt("numPartitions", 1);
+			mcu = new long[numPartitions];
 
 			String[] tmpPaths = context.getConfiguration().getTrimmedStrings("yarn.nodemanager.local-dirs");
 			sorter = new ExternalSorter(tmpPaths);
 
 			mout = new MultipleOutputs<>(context);
+
 		}
 
 		LongWritable om = new LongWritable();
 		LongWritable ov = new LongWritable();
 
 
-        class PredicateWithMin implements Predicate<Long> {
+        class LargeIterator implements Iterator<Long> {
 
-            long mu;
-            long u;
-            boolean can_u_be_star = true;
+		    long[] mcu;
+		    long u;
 
-            PredicateWithMin(long u, boolean is_upart) {
-                this.u = u;
-                this.mu = is_upart ? u : Long.MAX_VALUE;
+		    private Iterator<LongWritable> origin;
+		    boolean isStar = true;
+		    long hd = -1;
+		    boolean hdDefined = false;
+
+		    LargeIterator(Iterable<LongWritable> origin, long u, long[] mcu){
+		        this.origin = origin.iterator();
+		        this.mcu = mcu;
+		        this.u = u;
             }
 
-            public boolean test(Long _v) {
+            @Override
+            public boolean hasNext() {
 
-                boolean is_v_leaf = _v < 0;
-                long v = is_v_leaf ? ~_v : _v;
+		        if(hdDefined){
+		            return true;
+                }
+                else{
+		            while(origin.hasNext()){
+		                long v = origin.next().get();
 
-                can_u_be_star = can_u_be_star && is_v_leaf;
-                mu = Math.min(v, mu);
+		                long v_real = v < 0 ? ~v : v;
 
-                return u < v;
+		                if(v == v_real) isStar = false;
+
+                        int vp = H.hash(v_real) % numPartitions;
+                        if(v_real < mcu[vp]) mcu[vp] = v_real;
+                        if(u < v_real){
+                            hd = v;
+                            hdDefined = true;
+                            return true;
+                        }
+                    }
+                    return false;
+                }
+
+            }
+
+            @Override
+            public Long next() {
+		        if(hdDefined || hasNext()){
+		            hdDefined = false;
+		            return hd;
+                }
+                else{
+		            throw new NoSuchElementException();
+                }
             }
         }
 
@@ -294,110 +318,86 @@ public class PALargeStarOptStep1 extends Configured implements Tool{
 		protected void reduce(LongWritable key, Iterable<LongWritable> values, Context context)
 				throws IOException, InterruptedException{
 
-		    long _u = key.get();
-
-			long u = decode_id(_u);
-			long vp = decode_part(_u);
-			int up = part(u, numPartitions);
-
+			long u = key.get();
+			int uPartition = H.hash(u) % numPartitions;
 			long numChanges = 0;
+            boolean isStar = true;
 
 			long outSize = 0;
 			long inSize = 0;
-			long interSize = 0;
+			long ccSize = 0;
 
-            PredicateWithMin lfilter = new PredicateWithMin(u, vp == up);
+			Arrays.fill(mcu, Long.MAX_VALUE);
 
-            Iterator<Long> it = StreamSupport.stream(values.spliterator(), false)
-                    .map(LongWritable::get).filter(lfilter).iterator();
+			mcu[uPartition] = u;
 
-            Iterator<Long> uN_large = sorter.sort(it);
-
-            long mu = lfilter.mu;
-            boolean can_u_be_star = lfilter.can_u_be_star;
-
-            om.set(mu);
-
-            if(u == mu){
-
-                boolean is_non_leaf_emitted = false;
-
-                while(uN_large.hasNext()){
-                    long v = uN_large.next();
-
-                    if (v < 0) {
-                        ov.set(~v);
-                        mout.write(ov, om, "final/part-step1");
-                        inSize++;
-                    }
-                    if (!is_non_leaf_emitted) {
-                        ov.set(v);
-                        mout.write(om, ov, "inter/part-step1");
-                        is_non_leaf_emitted = true;
-                        interSize++;
-                    }
-                    else {
-                        ov.set(v);
-                        mout.write(ov, om, "out/part-step1");
-                        outSize++;
-                    }
-
-                }
-
-            }
-            else{
+            LargeIterator it_before = new LargeIterator(values,u,mcu);
 
 
-                while(uN_large.hasNext()){
-                    long v = uN_large.next();
-                    long v_abs = v < 0 ? ~v : v;
+			Iterator<Long> it = sorter.sort(it_before);
+
+            isStar = it_before.isStar;
+
+            long min_global = Arrays.stream(mcu).min().getAsLong();
 
 
-                    if(mu != v_abs){
+			if(isStar){
 
-                        om.set(mu);
+				try{
 
-                        if(v < 0){
-                            ov.set(~v);
-                            mout.write(ov, om, "final/part-step1");
-                            inSize++;
-                        }
-                        else {
-                            ov.set(v);
-                            mout.write(ov, om, "out/part-step1");
-                            outSize++;
-                        }
+					om.set(u);
 
-                        numChanges++;
-                    }
-                    else{ // v is local minimum (mu) and 0 <= v < u
+					while(true){
+						long v = ~it.next();
+						ov.set(v);
+						mout.write(ov, om, "final/part");
+						ccSize++;
+					}
 
-                        v = v < 0 ? ~v : v;
-                        v = can_u_be_star ? ~v : v;
+				}catch(NoSuchElementException ignored){}
 
-                        ov.set(v);
-                        om.set(u);
-                        mout.write(om, ov, "inter/part-step1");
-                        interSize++;
-                    }
+			}
+			else{
 
-                }
+				try{
 
-                //if mu < u, we send mu to u because mu can be the minimum node among the neighbors of u
-                if(mu < u){
-                    ov.set(mu);
-                    om.set(u);
-                    mout.write(om, ov, "inter/part-step1");
-                    interSize++;
-                }
+					while(true){
+						long v = it.next();
+						boolean vIsLeaf = v < 0;
+						v = vIsLeaf ? ~v : v;
 
-            }
+						int vPartition = H.hash(v) % numPartitions;
+						long min_local = mcu[vPartition];
 
+						ov.set(v);
+
+						if(min_local != v){
+							om.set(min_local);
+							if(vIsLeaf){
+							    mout.write(ov, om, "final/part");
+							    inSize++;
+                            }
+							else{
+							    mout.write(ov, om, "out/part");
+                                outSize++;
+                            }
+						}
+						else{ // v is a local minimum.
+							om.set(min_global);
+							mout.write(ov, om, "out/part");
+							outSize++;
+						}
+						if(om.get() != u) numChanges++;
+					}
+
+				}catch(NoSuchElementException ignored){}
+
+			}
 
 			context.getCounter(Counters.NUM_CHANGES).increment(numChanges);
+			context.getCounter(Counters.CC_SIZE).increment(ccSize);
 			context.getCounter(Counters.OUT_SIZE).increment(outSize);
             context.getCounter(Counters.IN_SIZE).increment(inSize);
-            context.getCounter(Counters.INTER_SIZE).increment(interSize);
 
 
 		}

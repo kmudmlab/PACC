@@ -35,8 +35,8 @@
 
 package cc.hadoop.alt;
 
-import cc.hadoop.Counters;
-import cc.hadoop.paccopt.TabularHashPartitioner;
+import cc.hadoop.utils.Counters;
+import cc.hadoop.pacc.opt.TabularHashPartitioner;
 import cc.hadoop.utils.ExternalSorter;
 import org.apache.hadoop.conf.Configured;
 import org.apache.hadoop.fs.FileSystem;
@@ -53,9 +53,7 @@ import org.apache.hadoop.mapreduce.lib.output.SequenceFileOutputFormat;
 import org.apache.hadoop.util.Tool;
 
 import java.io.IOException;
-import java.util.Arrays;
 import java.util.Iterator;
-import java.util.NoSuchElementException;
 import java.util.function.Predicate;
 import java.util.stream.StreamSupport;
 

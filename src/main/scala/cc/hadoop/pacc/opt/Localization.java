@@ -27,18 +27,16 @@
  * (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS
  * SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  * -------------------------------------------------------------------------
- * File: SmallStar.java
- * - the optimized smallstar operation of pacc.
+ * File: LargeStar.java
+ * - the optimized largestar operation of pacc.
  * Version: 3.0
  */
 
 
-package cc.hadoop.alt;
+package cc.hadoop.pacc.opt;
 
-import cc.hadoop.utils.Counters;
-import cc.hadoop.pacc.opt.TabularHashPartitioner;
 import cc.hadoop.utils.ExternalSorter;
-import org.apache.hadoop.conf.Configuration;
+import cc.hadoop.utils.TabularHash;
 import org.apache.hadoop.conf.Configured;
 import org.apache.hadoop.fs.FileSystem;
 import org.apache.hadoop.fs.Path;
@@ -46,29 +44,25 @@ import org.apache.hadoop.io.LongWritable;
 import org.apache.hadoop.mapreduce.Job;
 import org.apache.hadoop.mapreduce.Mapper;
 import org.apache.hadoop.mapreduce.Reducer;
-import org.apache.hadoop.mapreduce.TaskCounter;
 import org.apache.hadoop.mapreduce.lib.input.FileInputFormat;
 import org.apache.hadoop.mapreduce.lib.input.SequenceFileInputFormat;
 import org.apache.hadoop.mapreduce.lib.output.FileOutputFormat;
-import org.apache.hadoop.mapreduce.lib.output.LazyOutputFormat;
-import org.apache.hadoop.mapreduce.lib.output.MultipleOutputs;
 import org.apache.hadoop.mapreduce.lib.output.SequenceFileOutputFormat;
 import org.apache.hadoop.util.Tool;
+import org.apache.hadoop.util.ToolRunner;
 
 import java.io.IOException;
 import java.util.Iterator;
 import java.util.function.Predicate;
 import java.util.stream.StreamSupport;
 
-public class SmallStar extends Configured implements Tool{
-	
+
+public class Localization extends Configured implements Tool{
+
 	private final Path input;
 	private final Path output;
 	private final String title;
 	private final boolean verbose;
-	public long numChanges;
-	public long inputSize;
-	public long outSize;
 
 	/**
 	 * constructor
@@ -76,11 +70,24 @@ public class SmallStar extends Configured implements Tool{
 	 * @param output file path
 	 * @param verbose if true, it prints log verbosely.
 	 */
-	public SmallStar(Path input, Path output, boolean verbose){
+	public Localization(Path input, Path output, boolean verbose){
 		this.input = input;
 		this.output = output;
 		this.verbose = verbose;
-		this.title = String.format("[%s]%s", this.getClass().getSimpleName(), input.getName());
+		this.title = String.format("[%s]%s", this.getClass().getSimpleName(), output.getName());
+	}
+
+	/**
+	 * the main entry point
+	 * @param args [0]: input file path, [1]: output file path, and tool runner arguments inherited from pacc
+	 * @throws Exception of hadoop
+	 */
+	public static void main(String[] args) throws Exception{
+
+		Path input = new Path(args[0]);
+		Path output = new Path(args[1]);
+
+		ToolRunner.run(new Localization(input, output, true), args);
 	}
 
 	/**
@@ -90,126 +97,157 @@ public class SmallStar extends Configured implements Tool{
 	 * @throws Exception by hadoop
 	 */
 	public int run(String[] args) throws Exception{
-		
-		Configuration conf = getConf(); 
-		
-		Job job = Job.getInstance(conf, title);
-		
+
+
+
+		Job job = Job.getInstance(getConf(), title);
 		job.setJarByClass(this.getClass());
-		
+
 		job.setMapOutputKeyClass(LongWritable.class);
 		job.setMapOutputValueClass(LongWritable.class);
 		job.setOutputKeyClass(LongWritable.class);
 		job.setOutputValueClass(LongWritable.class);
-		
-		job.setMapperClass(Mapper.class);
-		job.setReducerClass(SmallStarReducer.class);
 
-		job.setPartitionerClass(TabularHashPartitioner.class);
-
+		job.setMapperClass(LocalizationMapper.class);
+		job.setReducerClass(LocalizationReducer.class);
 		job.setInputFormatClass(SequenceFileInputFormat.class);
-		LazyOutputFormat.setOutputFormatClass(job, SequenceFileOutputFormat.class);
-		
+		job.setOutputFormatClass(SequenceFileOutputFormat.class);
+
+
 		FileInputFormat.addInputPath(job, input);
 		FileOutputFormat.setOutputPath(job, output);
-		
-		FileSystem fs = FileSystem.get(conf);
-		
-		
+
+		FileSystem fs = FileSystem.get(getConf());
+
 		fs.delete(output, true);
-		
+
+
 		if(fs.exists(input)){
 			job.waitForCompletion(verbose);
-			this.numChanges = job.getCounters().findCounter(Counters.NUM_CHANGES).getValue();
-			this.inputSize = job.getCounters().findCounter(TaskCounter.MAP_INPUT_RECORDS).getValue();
-			this.outSize = job.getCounters().findCounter(TaskCounter.REDUCE_OUTPUT_RECORDS).getValue();
 		}
-		
+
 		return 0;
 	}
 
-	static public class SmallStarReducer extends Reducer<LongWritable, LongWritable, LongWritable, LongWritable>{
 
-		MultipleOutputs<LongWritable, LongWritable> mout;
 
-		ExternalSorter sorter;
+	public static long code(long n, int p){
+	    return (n << 10) | p;
+    }
 
-		/**
-		 * setup before execution
+    public static long decode_id(long n_raw){
+	    return n_raw >>> 10;
+    }
+
+    public static int decode_part(long n_raw){
+	    return (int) (n_raw & 0x3FF);
+    }
+
+	static public class LocalizationMapper extends Mapper<LongWritable, LongWritable, LongWritable, LongWritable>{
+
+		TabularHash H = TabularHash.getInstance();
+		int numPartitions;
+
+	    LongWritable ou = new LongWritable();
+
+        @Override
+        protected void setup(Context context) {
+            numPartitions = context.getConfiguration().getInt("numPartitions", 0);
+        }
+
+        /**
+		 * the map function of LargeStarOpt.
+		 * @param u source node
+		 * @param v destination node
 		 * @param context of hadoop
 		 * @throws IOException by hadoop
 		 * @throws InterruptedException by hadoop
 		 */
 		@Override
-		protected void setup(Context context)
-				throws IOException, InterruptedException{
+        protected void map(LongWritable u, LongWritable v, Context context) throws IOException, InterruptedException {
+		    int upart = H.hash(u.get()) % numPartitions;
+		    ou.set(code(v.get(), upart));
+            context.write(ou, u);
+        }
+    }
+
+	static public class LocalizationReducer extends Reducer<LongWritable, LongWritable, LongWritable, LongWritable>{
+
+		ExternalSorter sorter;
+
+		/**
+		 * setup before execution
+		 * @param context hadoop context
+		 */
+		@Override
+		protected void setup(Context context){
 
 			String[] tmpPaths = context.getConfiguration().getTrimmedStrings("yarn.nodemanager.local-dirs");
 			sorter = new ExternalSorter(tmpPaths);
 
 		}
-		
+
 		LongWritable om = new LongWritable();
 		LongWritable ov = new LongWritable();
 
+
         class PredicateWithMin implements Predicate<Long> {
-            long mu;
+            long mpu;
             long u;
 
             PredicateWithMin(long u) {
                 this.u = u;
-                this.mu = u;
+                this.mpu = Long.MAX_VALUE;
             }
 
             public boolean test(Long v) {
-                if (v < mu) mu = v;
+                if(mpu > v) mpu = v;
                 return true;
             }
-        };
+        }
 
 		/**
-		 * the reudce function of SmallStarOpt
+		 * the reduce function of LargeStarOpt
 		 * @param key source node
 		 * @param values destination nodes
 		 * @param context of hadoop
 		 * @throws IOException by hadoop
+		 * @throws InterruptedException by hadoop
 		 */
 		@Override
-		protected void reduce(LongWritable key, Iterable<LongWritable> values,
-				Context context)
-                throws IOException, InterruptedException {
+		protected void reduce(LongWritable key, Iterable<LongWritable> values, Context context)
+				throws IOException, InterruptedException{
 
-			long u = key.get();
+			long u_raw = key.get();
+			long u = decode_id(u_raw);
 
-			long numChanges = 0;
-
-            PredicateWithMin sfilter = new PredicateWithMin(u);
+			PredicateWithMin lfilter = new PredicateWithMin(u);
 
             Iterator<Long> it = StreamSupport.stream(values.spliterator(), false)
-                    .map(LongWritable::get).filter(sfilter).iterator();
+                    .map(LongWritable::get).filter(lfilter).iterator();
 
-			Iterator<Long> uN_small  = sorter.sort(it);
+			Iterator<Long> uN_iterator = sorter.sort(it);
 
-            final long mu = sfilter.mu;
-            om.set(mu);
+			long mpu = lfilter.mpu;
 
+			while(uN_iterator.hasNext()){
+			    long v = uN_iterator.next();
 
-			ov.set(u);
-            context.write(ov, om);
-
-            while(uN_small.hasNext()){
-                long v = uN_small.next();
-
-                if(v != mu) {
-                    ov.set(v);
+			    if(v != mpu){
+			        ov.set(v);
+			        om.set(mpu);
                     context.write(ov, om);
-                    numChanges++;
+                }
+                else{
+			        ov.set(v);
+			        om.set(u);
+			        context.write(ov, om);
                 }
             }
 
-			context.getCounter(Counters.NUM_CHANGES).increment(numChanges);
 		}
-		
+
 	}
-	
+
+
 }
