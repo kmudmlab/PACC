@@ -54,7 +54,7 @@ Options:
 Example:
 hadoop jar pacc-0.1.jar cc.hadoop.PACC -Dmapred.reduce.tasks=120 -DnumPartitions=120 -DlocalThreshold=20000000 path/to/input/file path/to/output/file
 ```
-You can test PACC with `./do_pacc_hadoop.sh`.
+You can test PACC with `bash do_pacc_hadoop.sh`.
 
 - execute PACC on Spark
 
