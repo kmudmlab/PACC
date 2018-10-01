@@ -8,6 +8,6 @@ It runs in parallel, distributed manner on top of Hadoop and Spark, which are wi
 PACC uses [SBT (Simple Build Tool)](http://www.scala-sbt.org/) to manage dependencies and build the whole project. To build the project, type the following command in terminal:
 
 ```bash
-sbt assembly
+tools/sbt assembly
 ```
 

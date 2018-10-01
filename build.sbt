@@ -1,4 +1,4 @@
-name := "pacc-ext"
+name := "pacc"
 
 version := "0.1"
 
@@ -37,7 +37,7 @@ libraryDependencies ++= Seq(
 //skip test during assembly
 test in assembly := {}
 
-
+target in assembly := baseDirectory.value / "bin"
 assemblyJarName in assembly := name.value + "-" + version.value + ".jar"
 
 //remove main-class
