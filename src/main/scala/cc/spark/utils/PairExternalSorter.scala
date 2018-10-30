@@ -1,3 +1,11 @@
+/*
+ * PACC: Partition-Aware Connected Components
+ * Authors: Ha-Myung Park, Namyong Park, Sung-Hyun Myaeng, and U Kang
+ *
+ * -------------------------------------------------------------------------
+ * File: LongExternalSorter.scala
+ */
+
 package cc.spark.utils
 
 import java.io.File

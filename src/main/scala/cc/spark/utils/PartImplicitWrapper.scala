@@ -1,5 +1,14 @@
+/*
+ * PACC: Partition-Aware Connected Components
+ * Authors: Ha-Myung Park, Namyong Park, Sung-Hyun Myaeng, and U Kang
+ *
+ * -------------------------------------------------------------------------
+ * File: PartImplicitWrapper.scala
+ */
+
 package cc.spark.utils
 
+/** Implicit conversions and helpers for [[cc.spark.PACC]], and [[cc.spark.PACCOpt]]. */
 object PartImplicitWrapper {
 
   val COPYID_MASK = 0x3FFL
@@ -8,6 +17,7 @@ object PartImplicitWrapper {
   implicit class CopyOps(n: Long){
 
     def nodeId: Long = (n & NODEID_MASK) >> 10
+
     def copyId: Long = n & COPYID_MASK
 
     def part(p: Int): Int = n.hashCode() % p

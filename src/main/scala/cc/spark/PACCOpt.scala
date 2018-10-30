@@ -1,3 +1,12 @@
+/*
+ * PACC: Partition-Aware Connected Components
+ * Authors: Ha-Myung Park, Namyong Park, Sung-Hyun Myaeng, and U Kang
+ *
+ * -------------------------------------------------------------------------
+ * File: PACCOpt.scala
+ * - The spark version of PACCOpt. It finds connected components in a graph.
+ */
+
 package cc.spark
 
 import java.util.StringTokenizer
@@ -12,6 +21,11 @@ import utils.StarGroupOps._
 import utils.FilteringOps._
 import utils.PartImplicitWrapper._
 
+/** PACCOpt for finding connected components.
+  * Two ways to run this algorithm:
+  * - Using spark-submit in CLI.
+  * - Calling [[PACCOpt.run()]] method.
+  */
 object PACCOpt{
 
   private val logger = Logger.getLogger(getClass)
@@ -22,6 +36,11 @@ object PACCOpt{
   val APP_NAME: String = "pacc-opt"
   val VERSION: String = "0.1"
 
+  /**
+    * Main function for running this algorithm in CLI.
+    *
+    * @param args Options to be parsed for [[Config]]
+    */
   def main(args: Array[String]): Unit = {
 
     val parser = new scopt.OptionParser[Config](APP_NAME) {
@@ -70,7 +89,7 @@ object PACCOpt{
   }
 
   /**
-    * submit the spark job.
+    * Submit the spark job.
     *
     * @param inputPath input file path.
     * @param numPartitions the number of partitions
@@ -95,12 +114,10 @@ object PACCOpt{
     }
 
     var numEdges = out.count()
+
     val t1 = System.currentTimeMillis()
 
-
-
     var converge = false
-
     var round = 0
 
     do{
@@ -169,7 +186,7 @@ object PACCOpt{
     val ttime = (t3-t0)/1000.0
     val inputFileName = inputPath.split("/").last
 
-    println(s"$APP_NAME\t$inputFileName\t$localThreshold\t$numPartitions\t$round\t$itime\t$rtime\t$ctime\t$ttime")
+    logger.info(s"$APP_NAME\t$inputFileName\t$localThreshold\t$numPartitions\t$round\t$itime\t$rtime\t$ctime\t$ttime")
 
     res
   }

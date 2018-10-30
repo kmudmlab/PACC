@@ -20,7 +20,7 @@ import java.util.StringTokenizer;
 
 import static junit.framework.Assert.assertEquals;
 
-public class PACCUnionTest {
+public class PACCTest {
 
     @Test
     public void testAll() throws Exception {

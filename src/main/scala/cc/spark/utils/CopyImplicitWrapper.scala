@@ -1,20 +1,27 @@
+/*
+ * PACC: Partition-Aware Connected Components
+ * Authors: Ha-Myung Park, Namyong Park, Sung-Hyun Myaeng, and U Kang
+ *
+ * -------------------------------------------------------------------------
+ * File: CopyImplicitWrapper.scala
+ */
+
 package cc.spark.utils
 
+/** Implicit conversions and helpers for [[cc.spark.AltOpt]].
+  *
+  * The first bit is 1, the node is high node.
+  * The second bit is 1, the node is a copy.
+  * The next 10 bits are the copyid.
+  * Remainder are the nodeid.
+  *
+  * high bit  node id (8 * 4 bits)  copy bit   copy id (10 bits)
+  * ↓                ↓                 ↓        ↓
+  * - -------------------------------- - ----------
+  * 0 00000000000000000000000000000000 0 0000000000
+  *
+  */
 object CopyImplicitWrapper {
-
-  //The first bit is 1, the node is high node.
-  //The second bit is 1, the node is a copy.
-  //The next 10 bits are the copyid.
-  //Remainder are the nodeid.
-
-
-  /**
-    * high bit  node id (8 * 4 bits)  copy bit   copy id (10 bits)
-    * ↓                ↓                 ↓        ↓
-    * - -------------------------------- - ----------
-    * 0 00000000000000000000000000000000 0 0000000000
-    *
-    */
 
   val HIGH_POSITION = 43
   val NODEID_POSITION = 11

@@ -50,7 +50,7 @@ class PACCUnionSpec extends FlatSpec with Matchers {
         (st.nextToken().toLong, st.nextToken().toLong)
       }).collect().distinct.sorted
 
-      val res = PACCUnion.run(path.toString, numPartitions, localThreshold, sc).collect().distinct.sorted
+      val res = PACC.run(path.toString, numPartitions, localThreshold, sc).collect().distinct.sorted
 
       res should be (true_result)
 

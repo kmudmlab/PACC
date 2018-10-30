@@ -1,10 +1,22 @@
+/*
+ * PACC: Partition-Aware Connected Components
+ * Authors: Ha-Myung Park, Namyong Park, Sung-Hyun Myaeng, and U Kang
+ *
+ * -------------------------------------------------------------------------
+ * File: StarGroupOps.scala
+ * - Implicit conversions and helpers for [[cc.spark.PACC]], [[cc.spark.PACCOpt]], [[cc.spark.PACCBase]],
+ *   [[cc.spark.AltOpt]], and [[cc.spark.AltOpt]].
+ */
+
+
 package cc.spark.utils
 
 import org.apache.spark.{HashPartitioner, Partitioner}
 import org.apache.spark.rdd.RDD
 
 /**
-  * Created by hmpark on 17. 7. 27.
+  * Implicit conversions and helpers for [[cc.spark.PACC]], [[cc.spark.PACCOpt]], [[cc.spark.PACCBase]],
+  * [[cc.spark.AltOpt]], and [[cc.spark.AltOpt]].
   */
 object StarGroupOps {
   implicit class StarRDDOp(rdd: RDD[(Long, Long)]){
@@ -23,6 +35,11 @@ object StarGroupOps {
 
   implicit class StarIteratorOp(it: Iterator[(Long, Long)]){
 
+    /**
+      * It returns an RDD where pairs are grouped by key.
+      *
+      * @return an RDD where pairs are grouped by key.
+      */
     def starGrouped()= new Iterator[(Long, Iterator[Long])] {
       var first: Option[(Long, Long)] = None
       var prev: GroupedIterator = _

@@ -9,17 +9,17 @@ import org.scalatest.{FlatSpec, Matchers}
 /**
   * Created by hmpark on 17. 3. 17.
   */
-class PACCLocalOptSpec extends FlatSpec with Matchers {
+class PACCBaseSpec extends FlatSpec with Matchers {
 
   Logger.getLogger("org").setLevel(Level.WARN)
   Logger.getLogger("akka").setLevel(Level.WARN)
   Logger.getLogger("cc.spark.utils.PairExternalSorter").setLevel(Level.WARN)
-  Logger.getLogger(PACCOpt .getClass).setLevel(Level.WARN)
+  Logger.getLogger(PACCBase.getClass).setLevel(Level.WARN)
 
   val logger = Logger.getLogger(getClass)
   logger.setLevel(Level.INFO)
 
-  "PACC" should "output the same result with UnionFindJob" in {
+  "PACCOpt" should "output the same result with UnionFindJob" in {
 
     val paths = Seq(
       getClass.getResource("/graphs/small/vline"),
@@ -51,7 +51,7 @@ class PACCLocalOptSpec extends FlatSpec with Matchers {
         (st.nextToken().toLong, st.nextToken().toLong)
       }).collect().distinct.sorted
 
-      val res = PACCLocalOpt.run(path.toString, numPartitions, localThreshold, sc).collect().distinct.sorted
+      val res = PACCBase.run(path.toString, numPartitions, localThreshold, sc).collect().distinct.sorted
 
       res should be (true_result)
 

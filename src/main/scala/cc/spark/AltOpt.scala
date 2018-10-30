@@ -1,3 +1,14 @@
+/*
+ * PACC: Partition-Aware Connected Components
+ * Authors: Ha-Myung Park, Namyong Park, Sung-Hyun Myaeng, and U Kang
+ *
+ * -------------------------------------------------------------------------
+ * File: AltOpt.scala
+ * - The spark version of the optimized alternating algorithm introduced in the following paper:
+ *   Raimondas Kiveris, Silvio Lattanzi, Vahab Mirrokni, Vibhor Rastogi, and Sergei Vassilvitskii. 2014.
+ *   Connected Components in MapReduce and Beyond. SOCC, 2014
+ */
+
 package cc.spark
 
 import java.util.StringTokenizer
@@ -11,6 +22,11 @@ import org.apache.spark.storage.StorageLevel
 import org.apache.spark.{HashPartitioner, Partitioner, SparkConf, SparkContext}
 import utils.CopyImplicitWrapper._
 
+/** Optimized Alternating algorithm for finding connected components.
+  * Two ways to run this algorithm:
+  * - Using spark-submit in CLI.
+  * - Calling [[AltOpt.run()]] method.
+  */
 object AltOpt{
 
   private val logger = Logger.getLogger(getClass)

@@ -1,3 +1,11 @@
+/*
+ * PACC: Partition-Aware Connected Components
+ * Authors: Ha-Myung Park, Namyong Park, Sung-Hyun Myaeng, and U Kang
+ *
+ * -------------------------------------------------------------------------
+ * File: FilteringOpts.scala
+ */
+
 package cc.spark.utils
 
 import org.apache.hadoop.conf.Configuration
@@ -5,10 +13,14 @@ import org.apache.hadoop.fs.Path
 import org.apache.hadoop.io.{LongWritable, SequenceFile}
 import org.apache.spark.rdd.RDD
 
+/** Implicit conversions and helpers for [[cc.spark.PACC]], [[cc.spark.PACCOpt]], and [[cc.spark.PACCBase]]. */
 object FilteringOps {
+
   implicit class FilteredRDD(rdd: RDD[(Boolean, Long, Long)]) {
 
     /**
+      * It returns a new RDD consisting of only items whose first element is true.
+      * Items whose first element is false are written to the file of `path`.
       *
       * @param path the path of a directory where output files will be placed
       * @param prefix the prefix of the name of an output file for items filtered out
@@ -26,6 +38,16 @@ object FilteringOps {
   }
 
   implicit class FilteredIterator(it: Iterator[(Boolean, Long, Long)]) {
+
+    /**
+      * It returns a new iterator consisting of only items whose first element is true.
+      * Items whose first element is false are written to the file of `path`.
+      *
+      * @param path the path of a directory where output files will be placed
+      * @param prefix the prefix of the name of an output file for items filtered out
+      * @param conf serializable hadoop configuration
+      * @return rdd without false
+      */
     def filtered(path: String, conf: Configuration)
     = new Iterator[(Long,Long)] {
 
