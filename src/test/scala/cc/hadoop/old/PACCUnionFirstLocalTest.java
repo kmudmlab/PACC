@@ -1,7 +1,7 @@
 package cc.hadoop.old;
 
 import cc.hadoop.UnionFind;
-import cc.hadoop.pacc.old.PACCUnionFirstLocal;
+import cc.hadoop.PACC;
 import cc.hadoop.utils.ExternalSorter;
 import cc.hadoop.utils.LongPairWritable;
 import org.apache.hadoop.conf.Configuration;
@@ -55,7 +55,7 @@ public class PACCUnionFirstLocalTest {
                     conf.setInt("numPartitions", numPartitions);
                     conf.setInt("localThreshold", localThreshold);
 
-                    ToolRunner.run(conf, new PACCUnionFirstLocal(), new String[]{inputPath, outputPath});
+                    ToolRunner.run(conf, new PACC(), new String[]{inputPath, outputPath});
 
 
 

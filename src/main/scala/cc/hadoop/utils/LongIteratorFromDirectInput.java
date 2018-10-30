@@ -1,3 +1,12 @@
+/*
+ * PACC: Partition-Aware Connected Components
+ * Authors: Ha-Myung Park, Namyong Park, Sung-Hyun Myaeng, and U Kang
+ *
+ * -------------------------------------------------------------------------
+ * File: LongIteratorFromDirectInput.java
+ * - Read an input stream as a long iterator.
+ */
+
 package cc.hadoop.utils;
 
 import java.io.IOException;

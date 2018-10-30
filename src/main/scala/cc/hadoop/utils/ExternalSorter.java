@@ -1,3 +1,12 @@
+/*
+ * PACC: Partition-Aware Connected Components
+ * Authors: Ha-Myung Park, Namyong Park, Sung-Hyun Myaeng, and U Kang
+ *
+ * -------------------------------------------------------------------------
+ * File: ExternalSorter.java
+ * - An external sorter for positive long values.
+ */
+
 package cc.hadoop.utils;
 
 import org.apache.log4j.Logger;
@@ -224,22 +233,6 @@ public class ExternalSorter {
                 }
             }
         } catch (NoSuchElementException e){/*do nothing*/}
-
-//        while (in1.hasNext()) {
-//            u = in1.next();
-//            if (prev != u) {
-//                out.write(u);
-//                prev = u;
-//            }
-//        }
-//
-//        while (in2.hasNext()) {
-//            v = in2.next();
-//            if (prev != v) {
-//                out.write(v);
-//                prev = v;
-//            }
-//        }
 
         out.close();
 

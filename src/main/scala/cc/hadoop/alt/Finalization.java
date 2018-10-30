@@ -1,3 +1,13 @@
+/*
+ * PACC: Partition-Aware Connected Components
+ * Authors: Ha-Myung Park, Namyong Park, Sung-Hyun Myaeng, and U Kang
+ *
+ * -------------------------------------------------------------------------
+ * File: Finalization.java
+ * - The finalization for the alternating algorithm. It just changes the format of graph file
+ * from a sequence file format to a text file format
+ */
+
 package cc.hadoop.alt;
 
 import org.apache.hadoop.conf.Configured;

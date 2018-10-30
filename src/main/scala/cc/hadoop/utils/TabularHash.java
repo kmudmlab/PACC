@@ -1,3 +1,12 @@
+/*
+ * PACC: Partition-Aware Connected Components
+ * Authors: Ha-Myung Park, Namyong Park, Sung-Hyun Myaeng, and U Kang
+ *
+ * -------------------------------------------------------------------------
+ * File: TabularHash.java
+ * - A 4-wise independent family of functions implemented by tabular hashing.
+ */
+
 package cc.hadoop.utils;
 
 

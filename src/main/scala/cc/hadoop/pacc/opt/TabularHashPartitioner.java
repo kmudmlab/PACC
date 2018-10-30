@@ -1,3 +1,12 @@
+/*
+ * PACC: Partition-Aware Connected Components
+ * Authors: Ha-Myung Park, Namyong Park, Sung-Hyun Myaeng, and U Kang
+ *
+ * -------------------------------------------------------------------------
+ * File: TabularHashPartitioner.java
+ * - HashPartitioner with TabularHash.
+ */
+
 package cc.hadoop.pacc.opt;
 
 import cc.hadoop.utils.TabularHash;

@@ -1,16 +1,18 @@
 /*
- * PACCBase: Partition-Aware Connected Components
+ * PACC: Partition-Aware Connected Components
  * Authors: Ha-Myung Park, Namyong Park, Sung-Hyun Myaeng, and U Kang
  *
  * -------------------------------------------------------------------------
- * File: PACCBase.java
- * - pacc. It finds connected components in a graph.
- * Version: 3.0
+ * File: PACC.java
+ * - The hadoop version of PACC. It finds connected components in a graph.
  */
 
 package cc.hadoop;
 
-import cc.hadoop.pacc.opt.*;
+import cc.hadoop.pacc.opt.Finalization;
+import cc.hadoop.pacc.opt.InitByUnionFindWithLocalization;
+import cc.hadoop.pacc.opt.PALargeStarOpt;
+import cc.hadoop.pacc.opt.PASmallStarOpt;
 import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.conf.Configured;
 import org.apache.hadoop.fs.FileSystem;
@@ -79,21 +81,20 @@ public class PACC extends Configured implements Tool{
 
 
 
-		Initialization init = new Initialization(input, output.suffix("_0/out"), verbose);
+		InitByUnionFindWithLocalization init = new InitByUnionFindWithLocalization(input, output.suffix("_0/out"), verbose);
 		
 		ToolRunner.run(conf, init, null);
 
 		logger.info("Round 0 (init) ends :\t" + ((System.currentTimeMillis() - time)/1000.0));
 
 		PALargeStarOpt largeStar;
-		Localization localization;
 		PASmallStarOpt smallStar;
 		
 		long numEdges = init.outputSize;
 		long numChanges;
 		boolean converge;
 		int i=0;
-
+		
 		do{
 
 			if(numEdges > localThreshold){
@@ -104,13 +105,9 @@ public class PACC extends Configured implements Tool{
 				ToolRunner.run(conf, largeStar, null);
 				fs.delete(output.suffix("_" + i + "/out"), true);
 
-                localization = new Localization(output.suffix("_large_" + i + "/out"), output.suffix("_local_" + i), verbose);
-                ToolRunner.run(conf, localization, null);
-                fs.delete(output.suffix("_large_" + i + "/out"), true);
-
-				smallStar = new PASmallStarOpt(output.suffix("_local_" + i), output.suffix("_" + (i + 1)), verbose);
+				smallStar = new PASmallStarOpt(output.suffix("_large_" + i + "/out"), output.suffix("_" + (i + 1)), verbose);
 				ToolRunner.run(conf, smallStar, null);
-				fs.delete(output.suffix("_local_" + i), true);
+				fs.delete(output.suffix("_large_" + i + "/out"), true);
 
 				logger.info(String.format("Round %d (star) ends :\tlout(%d)\tlcc(%d)\tlin(%d)\tsout(%d)\tsin(%d)\t%.2fs",
 						i, largeStar.outSize, largeStar.ccSize, largeStar.inSize, smallStar.outSize, smallStar.inSize,
@@ -158,7 +155,7 @@ public class PACC extends Configured implements Tool{
 			fs.delete(output.suffix("_large_"+r), true);
 		}
 		
-		System.out.print("[PACC-end]\t" + input.getName() + "\t" + output.getName() + "\t" + numPartitions + "\t" + numReduceTasks + "\t" + localThreshold + "\t" + (i+1) + "\t");
+		System.out.print("[PACCUnion-end]\t" + input.getName() + "\t" + output.getName() + "\t" + numPartitions + "\t" + numReduceTasks + "\t" + localThreshold + "\t" + (i+1) + "\t");
 		System.out.print( ((System.currentTimeMillis() - totalTime)/1000.0) + "\t" );
 		System.out.println("# input output numPartitions numReduceTasks localThreshold numRounds time(sec)");
 		

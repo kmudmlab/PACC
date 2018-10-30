@@ -1,3 +1,12 @@
+/*
+ * PACC: Partition-Aware Connected Components
+ * Authors: Ha-Myung Park, Namyong Park, Sung-Hyun Myaeng, and U Kang
+ *
+ * -------------------------------------------------------------------------
+ * File: CopyUtil.java
+ * - A utility class for dealing with copy nodes in the optimized alternating algorithm.
+ */
+
 package cc.hadoop.altopt;
 
 import cc.hadoop.utils.TabularHash;

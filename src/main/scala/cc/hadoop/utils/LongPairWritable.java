@@ -1,3 +1,12 @@
+/*
+ * PACC: Partition-Aware Connected Components
+ * Authors: Ha-Myung Park, Namyong Park, Sung-Hyun Myaeng, and U Kang
+ *
+ * -------------------------------------------------------------------------
+ * File: LongPairWritable.java
+ * - Writable for a long pair.
+ */
+
 package cc.hadoop.utils;
 
 import org.apache.hadoop.io.WritableComparable;

@@ -1,3 +1,12 @@
+/*
+ * PACC: Partition-Aware Connected Components
+ * Authors: Ha-Myung Park, Namyong Park, Sung-Hyun Myaeng, and U Kang
+ *
+ * -------------------------------------------------------------------------
+ * File: UnionFind.java
+ * - A single machine implementation of UnionFind. It finds connected components in a graph.
+ */
+
 package cc.hadoop;
 
 import cc.hadoop.utils.LongPairWritable;
