@@ -44,7 +44,7 @@ public class Initialization extends Configured implements Tool{
 	public long outputSize;
 
 	/**
-	 * Transform a tab separated text file
+	 * constructor
 	 * @param input file path.
 	 * @param output file path.
 	 * @param verbose true for verbose logging.
@@ -58,7 +58,7 @@ public class Initialization extends Configured implements Tool{
 
 	/**
 	 * the main entry point
-	 * @param args [0]: input file path, [1]: output file path, and tool runner arguments inherited from pacc
+	 * @param args [0]: input file path, [1]: output file path, and tool runner arguments
 	 * @throws Exception of hadoop
 	 */
 	public static void main(String[] args) throws Exception{
@@ -71,7 +71,7 @@ public class Initialization extends Configured implements Tool{
 
 	/**
 	 * submit the hadoop job
-	 * @param args tool runner parameters inherited from pacc
+	 * @param args tool runner parameters
 	 * @return not used
 	 * @throws Exception by hadoop
 	 */

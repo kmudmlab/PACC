@@ -60,7 +60,7 @@ public class SmallStar extends Configured implements Tool{
 
 	/**
 	 * submit the hadoop job
-	 * @param args tool runner parameters inherited from pacc
+	 * @param args tool runner parameters
 	 * @return not used
 	 * @throws Exception by hadoop
 	 */
@@ -143,7 +143,7 @@ public class SmallStar extends Configured implements Tool{
         };
 
 		/**
-		 * the reudce function of SmallStarOpt
+		 * the reudce function of SmallStar
 		 * @param key source node
 		 * @param values destination nodes
 		 * @param context of hadoop

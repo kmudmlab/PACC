@@ -36,8 +36,6 @@ public class Alt extends Configured implements Tool{
 	 * -D verbose if true, it prints log verbosely (default: false).
 	 * -D mapred.reduce.tasks number of reduce tasks (default: 1).
 	 * -D numPartitions the number of partitions (default: the number of reduce tasks).
-	 * -D localThreshold pacc run a in-memory cc algorithm if the remaining number of edges is below
-	 * this value (default: 1000000).
 	 * @throws Exception by hadoop
 	 */
 	public static void main(String[] args) throws Exception{
@@ -52,8 +50,6 @@ public class Alt extends Configured implements Tool{
 	 * -D verbose if true, it prints log verbosely (default: false).
 	 * -D mapred.reduce.tasks number of reduce tasks (default: 1).
 	 * -D numPartitions the number of partitions (default: the number of reduce tasks).
-	 * -D localThreshold pacc run an in-memory cc algorithm if the remaining number of edges is below
-	 * this value (default: 1000000).
 	 * @throws Exception by hadoop
 	 */
 	public int run(String[] args) throws Exception{

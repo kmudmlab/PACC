@@ -28,8 +28,6 @@ import java.util.Iterator;
 import java.util.function.Predicate;
 import java.util.stream.StreamSupport;
 
-
-
 public class LargeStarOpt extends Configured implements Tool{
 
 	private final Path input;
@@ -55,7 +53,7 @@ public class LargeStarOpt extends Configured implements Tool{
 
 	/**
 	 * submit the hadoop job
-	 * @param args tool runner parameters inherited from pacc
+	 * @param args tool runner parameters
 	 * @return not used
 	 * @throws Exception by hadoop
 	 */

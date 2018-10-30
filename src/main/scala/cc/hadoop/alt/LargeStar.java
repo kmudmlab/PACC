@@ -32,7 +32,6 @@ import java.util.Iterator;
 import java.util.function.Predicate;
 import java.util.stream.StreamSupport;
 
-
 public class LargeStar extends Configured implements Tool{
 
 	private final Path input;
@@ -58,7 +57,7 @@ public class LargeStar extends Configured implements Tool{
 
 	/**
 	 * submit the hadoop job
-	 * @param args tool runner parameters inherited from pacc
+	 * @param args tool runner parameters
 	 * @return not used
 	 * @throws Exception by hadoop
 	 */
@@ -102,7 +101,7 @@ public class LargeStar extends Configured implements Tool{
 	static public class LargeStarMapper extends Mapper<LongWritable, LongWritable, LongWritable, LongWritable>{
 
 		/**
-		 * the map function of LargeStarOpt.
+		 * the map function of LargeStar.
 		 * @param u source node
 		 * @param v destination node
 		 * @param context of hadoop
@@ -121,7 +120,7 @@ public class LargeStar extends Configured implements Tool{
         LongWritable ov = new LongWritable();
 
 		/**
-		 * the combiner function of LargeStarOpt
+		 * the combiner function of LargeStar
 		 * @param _u source node
 		 * @param values destination nodes
 		 * @param context of hadoop
@@ -187,7 +186,7 @@ public class LargeStar extends Configured implements Tool{
 		};
 
 		/**
-		 * the reduce function of LargeStarOpt
+		 * the reduce function of LargeStar
 		 * @param key source node
 		 * @param values destination nodes
 		 * @param context of hadoop

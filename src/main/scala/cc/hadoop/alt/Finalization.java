@@ -22,6 +22,10 @@ import org.apache.hadoop.mapreduce.lib.output.FileOutputFormat;
 import org.apache.hadoop.mapreduce.lib.output.TextOutputFormat;
 import org.apache.hadoop.util.Tool;
 
+/**
+ * Finalization.
+ * This class changes the format of an edge list file from a sequence file format to a text file format.
+ */
 public class Finalization extends Configured implements Tool{
 	
 	private final Path output;

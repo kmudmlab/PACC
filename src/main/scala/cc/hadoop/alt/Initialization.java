@@ -32,10 +32,7 @@ import java.util.StringTokenizer;
 
 /**
  * Initialization.
- * This class changes the format of an edge list file from a text format to a sequential format.
- * 
- * @author hmpark
- *
+ * This class changes the format of an edge list file from a text file format to a sequence file format.
  */
 public class Initialization extends Configured implements Tool{
 	
