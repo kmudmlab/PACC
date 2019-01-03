@@ -1,10 +1,27 @@
+
 # PACC
 
 - PACC (Partition Aware Connected Components) is a tool for computing connected components in a large graph.
 - Given an undirected simple graph, PACC returns the minimum reachable node id for each node.
 - It runs in parallel, distributed manner on top of Hadoop and Spark, which are widely-used distributed computation system.
+- Authors:
+  - Ha-Myung Park (hamyung.park@snu.ac.kr), Seoul National University
+  - Namyong Park (namyongp@cs.cmu.edu), Carnegie Mellon University
+  - Sung-Hyon Myaeng (myaeng@kaist.ac.kr), KAIST
+  - U Kang (ukang@snu.ac.kr), Seoul National University
 
-
+- If your work uses or refers to PACC, please cite the paper using the following bibtex entry:
+    ```
+    @inproceedings{ParkPACC16,
+      author = {Ha-Myung Park and
+                   Namyong Park and
+                   Sung-Hyon Myaeng and
+                   U Kang},
+      title = {Partition Aware Connected Component Computation in Distributed Systems},
+      booktitle = {ICDM},
+      year = {2016},
+    }
+    ```
 
 ## Build
 

@@ -76,10 +76,6 @@ public class DirectWriter implements Closeable {
 		this.path = path;
 	}
 	
-	public String getPath(){
-		return path;
-	}
-
 	/**
 	 * write a 32-bit value.
 	 * @param u 32-bit value
