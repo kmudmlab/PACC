@@ -1,3 +1,37 @@
+/*
+ * PACC: Partition-Aware Connected Components
+ * Authors: Ha-Myung Park, Namyong Park, Sung-Hyun Myaeng, and U Kang
+ *
+ * Copyright (c) 2018, Ha-Myung Park, Namyong Park, Sung-Hyun Myaeng, and U Kang
+ * All rights reserved.
+ *
+ * Redistribution and use in source and binary forms, with or without
+ * modification, are permitted provided that the following conditions are met:
+ *     * Redistributions of source code must retain the above copyright
+ *       notice, this list of conditions and the following disclaimer.
+ *     * Redistributions in binary form must reproduce the above copyright
+ *       notice, this list of conditions and the following disclaimer in the
+ *       documentation and/or other materials provided with the distribution.
+ *     * Neither the name of the Seoul National University nor the
+ *       names of its contributors may be used to endorse or promote products
+ *       derived from this software without specific prior written permission.
+ *
+ * THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS" AND
+ * ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED
+ * WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE
+ * DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT HOLDERS BE LIABLE FOR ANY
+ * DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES
+ * (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES;
+ * LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND
+ * ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
+ * (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS
+ * SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+ *
+ * -------------------------------------------------------------------------
+ * File: DirectWriter.java
+ * - A fast binary file writer.
+ */
+
 package cc.io;
 
 import org.apache.log4j.Logger;
@@ -23,12 +57,6 @@ public class DirectWriter implements Closeable {
 		this(path, 65536);
 	}
 	
-	private void flush() throws IOException{
-		buf.flip();
-		ch.write(buf);
-		buf.clear();
-	}
-	
 	public DirectWriter(String path, int bufferSize) throws IOException {
 		
 		Files.createDirectories(Paths.get(path).getParent());
@@ -51,7 +79,12 @@ public class DirectWriter implements Closeable {
 	public String getPath(){
 		return path;
 	}
-	
+
+	/**
+	 * write a 32-bit value.
+	 * @param u 32-bit value
+	 * @throws IOException
+	 */
 	public void write(int u) throws IOException{
 
 		try{
@@ -63,6 +96,11 @@ public class DirectWriter implements Closeable {
 		
 	}
 
+	/**
+	 * write a 64-bit value.
+	 * @param u 64-bit value
+	 * @throws IOException
+	 */
 	public void write(long u) throws IOException{
 
 		try{
@@ -74,47 +112,10 @@ public class DirectWriter implements Closeable {
 
 	}
 
-	public void write(Object obj) throws IOException{
-
-		if(obj instanceof Long){
-			write(((Long) obj).longValue());
-			return;
-		}
-		else if(obj instanceof Integer){
-			write(((Integer) obj).intValue());
-			return;
-		}
-
-		ByteArrayOutputStream baos = null;
-		ObjectOutputStream oos = null;
-
-		try{
-			baos = new ByteArrayOutputStream();
-			oos = new ObjectOutputStream(baos);
-
-			oos.writeObject(obj);
-			oos.flush();
-
-			byte[] bytes = baos.toByteArray();
-			int i = 0;
-			while(i < bytes.length){
-				int remainingBytes = bytes.length - i;
-				int lengthToWrite = Math.min(buf.remaining(), remainingBytes);
-				buf.put(bytes, i, lengthToWrite);
-				i += lengthToWrite;
-				if(buf.remaining() == 0){
-					flush();
-				}
-			}
-		} finally {
-			if(oos != null) oos.close();
-			if(baos != null) baos.close();
-		}
-
-	}
-	
-
-	
+	/**
+	 * close this writer.
+	 * @throws IOException
+	 */
 	public void close() throws IOException {
 
 		flush();
@@ -123,7 +124,15 @@ public class DirectWriter implements Closeable {
 		in.close();
 		buf = null;
 	}
-	
-	
+
+	/**
+	 * flush the buffer.
+	 * @throws IOException
+	 */
+	private void flush() throws IOException{
+		buf.flip();
+		ch.write(buf);
+		buf.clear();
+	}
 	
 }
