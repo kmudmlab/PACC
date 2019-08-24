@@ -156,7 +156,7 @@ public class PACC extends Configured implements Tool{
 						i, lcc.outputSize, ((System.currentTimeMillis() - time) / 1000.0)));
 
 				fs.delete(output.suffix("_" + i + "/out"), true);
-				
+
 				numEdges = lcc.outputSize;
 				converge = true;
 			}

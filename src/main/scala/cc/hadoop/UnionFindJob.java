@@ -92,11 +92,11 @@ public class UnionFindJob extends Configured implements Tool {
 
 		FileStatus[] status;
 		if(fs.isDirectory(input)){
-			status = new FileStatus[1];
-			status[0] = fs.getFileStatus(input);
+			status = fs.listStatus(input, path -> path.getName().startsWith("part"));
 		}
 		else{
-			status = fs.listStatus(input, path -> path.getName().startsWith("part"));
+			status = new FileStatus[1];
+			status[0] = fs.getFileStatus(input);
 		}
 
 		for (FileStatus statu : status) {
