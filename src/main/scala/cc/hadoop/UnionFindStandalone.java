@@ -34,20 +34,23 @@
 
 package cc.hadoop;
 
+import it.unimi.dsi.fastutil.longs.Long2LongMap;
 import it.unimi.dsi.fastutil.longs.Long2LongOpenHashMap;
 import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.conf.Configured;
-import org.apache.hadoop.fs.FileStatus;
-import org.apache.hadoop.fs.FileSystem;
-import org.apache.hadoop.fs.Path;
+import org.apache.hadoop.fs.*;
 import org.apache.hadoop.io.LongWritable;
 import org.apache.hadoop.io.SequenceFile;
 import org.apache.hadoop.util.Tool;
 import org.apache.hadoop.util.ToolRunner;
 
+import java.io.BufferedWriter;
 import java.io.IOException;
+import java.io.OutputStreamWriter;
+import java.util.Arrays;
+import java.util.StringTokenizer;
 
-public class UnionFindJob extends Configured implements Tool {
+public class UnionFindStandalone extends Configured implements Tool {
 
 	private Long2LongOpenHashMap parent;
 
@@ -58,7 +61,7 @@ public class UnionFindJob extends Configured implements Tool {
 
 
 	public static void main(String[] args) throws Exception {
-	    UnionFindJob job = new UnionFindJob(new Path(args[0]), new Path(args[1]));
+	    UnionFindStandalone job = new UnionFindStandalone(new Path(args[0]), new Path(args[1]));
         ToolRunner.run(job, args);
     }
 
@@ -67,7 +70,7 @@ public class UnionFindJob extends Configured implements Tool {
 	 * @param input file path
 	 * @param output file path
 	 */
-	public UnionFindJob(Path input, Path output) {
+	public UnionFindStandalone(Path input, Path output) {
 		this.input = input;
 		this.output = output;
 		this.parent  = new Long2LongOpenHashMap();
@@ -92,51 +95,43 @@ public class UnionFindJob extends Configured implements Tool {
 
 		FileStatus[] status;
 		if(fs.isDirectory(input)){
+			status = fs.listStatus(input, path -> path.getName().startsWith("part"));
+		}
+		else{
 			status = new FileStatus[1];
 			status[0] = fs.getFileStatus(input);
 		}
-		else{
-			status = fs.listStatus(input, path -> path.getName().startsWith("part"));
-		}
+
+		System.err.println("Status:");
+		System.err.println(Arrays.toString(status));
 
 		for (FileStatus statu : status) {
-			try {
-				SequenceFile.Reader sr = new SequenceFile.Reader(fs, statu.getPath(), conf);
 
-				while (sr.next(iKey, iValue)) {
-					long u = iKey.get();
-					long v = iValue.get();
-					if (u < 0) u = ~u;
+			System.err.println("Read " + statu.getPath());
 
-					if (find(u) != find(v)) {
-						union(u, v);
-					}
-				}
-				sr.close();
+			FSDataInputStream in = fs.open(statu.getPath());
+			String line;
+			while((line = in.readLine()) != null){
+				StringTokenizer st = new StringTokenizer(line);
+				long u = Long.parseLong(st.nextToken());
+				long v = Long.parseLong(st.nextToken());
 
-			} catch (Exception ignored) {}
+				union(u, v);
+			}
+
 		}
 
-		final SequenceFile.Writer out = new SequenceFile.Writer(fs, conf, output,
-				LongWritable.class, LongWritable.class);
 
-		final LongWritable ou = new LongWritable();
-		final LongWritable ov = new LongWritable();
+		OutputStreamWriter bw = new OutputStreamWriter(fs.create(output));
 
-		parent.forEach((u, x) -> {
-            try{
-                long v = find(u);
-                if(u != v){
-                    ou.set(u);
-                    ov.set(v);
-                    out.append(ou, ov);
-                    outputSize++;
-                }
-            } catch (IOException ignored){}
-        });
+		for(java.util.Map.Entry<Long, Long> pair : parent.entrySet()){
+			long u = pair.getKey();
+			long v = find(u);
 
+			bw.write(u + "\t" + v + "\n");
+		}
 
-		out.close();
+		bw.close();
 
 		return 0;
 	}
@@ -156,6 +151,7 @@ public class UnionFindJob extends Configured implements Tool {
 			return new_p;
 		}
 		else{
+			parent.put(x, -1);
 			return x;
 		}
 
