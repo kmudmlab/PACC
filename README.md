@@ -5,7 +5,7 @@
 - Given an undirected simple graph, PACC returns the minimum reachable node id for each node.
 - It runs in parallel, distributed manner on top of Hadoop and Spark, which are widely-used distributed computation system.
 - Authors:
-  - Ha-Myung Park (hamyung.park@snu.ac.kr), Seoul National University
+  - Ha-Myung Park (hmpark@kookmin.ac.kr), Kookmin University
   - Namyong Park (namyongp@cs.cmu.edu), Carnegie Mellon University
   - Sung-Hyon Myaeng (myaeng@kaist.ac.kr), KAIST
   - U Kang (ukang@snu.ac.kr), Seoul National University
